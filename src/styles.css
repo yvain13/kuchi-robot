@@ -1,0 +1,1136 @@
+/**
+ * Kuchi Bot - Vector/Cozmo Style Expressions
+ * Clean cyan LED eyes on dark screen
+ * No mouth - expressions conveyed purely through eye shapes
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Kuchi Colors - Vector/Cozmo inspired */
+  --kuchi-yellow: #FFD93D;
+  --kuchi-yellow-dark: #D4A800;
+  --kuchi-yellow-light: #FFE566;
+  --kuchi-blue: #4A90D9;
+  --kuchi-blue-dark: #3A7BC8;
+  --kuchi-blue-light: #6BA8E8;
+  --kuchi-gray: #7A7A7A;
+  --kuchi-gray-dark: #4A4A4A;
+  --kuchi-gray-light: #9A9A9A;
+  
+  /* Screen colors - Vector style */
+  --screen-bg: #1a1a1a;
+  --screen-dark: #0d0d0d;
+  --eye-cyan: #00E5CC;
+  --eye-cyan-glow: rgba(0, 229, 204, 0.6);
+  --eye-cyan-bright: #00FFE5;
+  
+  --pixel-border: #2a2a2a;
+  --status-cyan: #00ffcc;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+  color: #fff;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+}
+
+/* ==================== SETTINGS BUTTON ==================== */
+.settings-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s;
+  z-index: 100;
+}
+
+.settings-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+/* ==================== KUCHI ROBOT CONTAINER ==================== */
+.robot-face {
+  position: relative;
+  z-index: 10;
+  transform: scale(1.3);
+  transition: transform 0.3s ease;
+}
+
+.robot-face:hover {
+  transform: scale(1.35);
+}
+
+.kuchi-bot {
+  position: relative;
+  animation: bot-idle 3s ease-in-out infinite;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.6));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@keyframes bot-idle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+/* ==================== HEAD ==================== */
+.head {
+  position: relative;
+  width: 180px;
+  height: 140px;
+  z-index: 10;
+}
+
+/* Antenna */
+.antenna {
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 30px;
+  background: linear-gradient(90deg, #555 0%, #888 50%, #555 100%);
+  border: 2px solid var(--pixel-border);
+  border-radius: 2px;
+  z-index: 5;
+}
+
+.antenna::after {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 18px;
+  background: radial-gradient(circle at 30% 30%, #FF6B6B, #E74C3C);
+  border: 3px solid var(--pixel-border);
+  border-radius: 50%;
+  animation: antenna-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes antenna-glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px #E74C3C;
+    transform: translateX(-50%) scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 25px #FF6B6B, 0 0 50px #E74C3C; 
+    transform: translateX(-50%) scale(1.1);
+  }
+}
+
+/* Blue Helmet */
+.helmet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, var(--kuchi-blue-light) 0%, var(--kuchi-blue) 40%, var(--kuchi-blue-dark) 100%);
+  border: 4px solid var(--pixel-border);
+  border-radius: 25px 25px 35px 35px;
+  overflow: visible;
+}
+
+.helmet::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 45px;
+  height: 22px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%);
+  border-radius: 12px;
+}
+
+/* Ear Covers */
+.ear {
+  position: absolute;
+  top: 45px;
+  width: 28px;
+  height: 55px;
+  background: linear-gradient(90deg, var(--kuchi-gray-dark) 0%, var(--kuchi-gray) 50%, var(--kuchi-gray-dark) 100%);
+  border: 3px solid var(--pixel-border);
+  border-radius: 10px;
+  z-index: 1;
+}
+
+.ear.left { 
+  left: -18px;
+  border-radius: 10px 5px 5px 10px;
+}
+.ear.right { 
+  right: -18px;
+  border-radius: 5px 10px 10px 5px;
+}
+
+.ear::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 3px;
+  background: var(--kuchi-gray-dark);
+  border-radius: 2px;
+  box-shadow: 0 10px 0 var(--kuchi-gray-dark), 0 20px 0 var(--kuchi-gray-dark);
+}
+
+/* Yellow Face Area */
+.face-plate {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 155px;
+  height: 95px;
+  background: linear-gradient(180deg, var(--kuchi-yellow-light) 0%, var(--kuchi-yellow) 40%, var(--kuchi-yellow-dark) 100%);
+  border: 4px solid var(--pixel-border);
+  border-radius: 10px 10px 45px 45px;
+  border-top: none;
+  z-index: 2;
+}
+
+.face-plate::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 15px;
+  width: 30px;
+  height: 15px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%);
+  border-radius: 8px;
+}
+
+/* ==================== SCREEN - Vector Style ==================== */
+.screen {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 125px;
+  height: 72px;
+  background: var(--screen-bg);
+  border: 4px solid var(--pixel-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 30px rgba(0,0,0,0.8),
+    0 0 15px rgba(0, 229, 204, 0.2);
+  z-index: 15;
+}
+
+/* Screen glare */
+.screen::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 12px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 6px;
+  z-index: 20;
+}
+
+/* Scan Lines */
+.screen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.2) 2px,
+    rgba(0,0,0,0.2) 4px
+  );
+  pointer-events: none;
+  z-index: 18;
+}
+
+/* ==================== FACE / EYES CONTAINER ==================== */
+.face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 16;
+}
+
+.eyes-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  padding: 0 15px;
+}
+
+/* ==================== VECTOR-STYLE EYES ==================== */
+.eye {
+  width: 32px;
+  height: 38px;
+  background: var(--eye-cyan);
+  border-radius: 6px;
+  position: relative;
+  transition: all 0.2s ease-out;
+  box-shadow: 
+    0 0 20px var(--eye-cyan-glow),
+    0 0 40px rgba(0, 229, 204, 0.3),
+    inset 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* Remove pupils for Vector style - not needed */
+.pupil {
+  display: none;
+}
+
+/* Hide cheeks and mouth - not used in Vector style */
+.cheeks, .mouth, .hearts, .stars, .sweat {
+  display: none;
+}
+
+/* ==================== EXPRESSION STATES ==================== */
+/* All expressions use eye shape changes only - Vector/Cozmo style */
+
+/* NEUTRAL / IDLE - Default rounded rectangles */
+.face:not([class*="expr-"]) .eye,
+.expr-idle .eye,
+.expr-neutral .eye {
+  width: 32px;
+  height: 38px;
+  border-radius: 6px;
+}
+
+/* BLINK */
+.expr-blink .eye {
+  height: 4px;
+  border-radius: 2px;
+}
+
+/* HAPPY - Curved upward (like ^_^) */
+.expr-happy .eye {
+  width: 36px;
+  height: 12px;
+  border-radius: 20px 20px 4px 4px;
+  transform: translateY(8px);
+}
+
+/* GLEE - Very curved, squished happy */
+.expr-glee .eye {
+  width: 40px;
+  height: 8px;
+  border-radius: 20px 20px 2px 2px;
+  transform: translateY(10px);
+}
+
+/* SAD (Looking Down) - Droopy */
+.expr-sad .eye {
+  width: 28px;
+  height: 32px;
+  border-radius: 6px 6px 12px 12px;
+  transform: translateY(8px);
+}
+
+.expr-sad .eye.left {
+  transform: translateY(8px) rotate(-5deg);
+}
+
+.expr-sad .eye.right {
+  transform: translateY(8px) rotate(5deg);
+}
+
+/* SAD (Looking Up) - Pleading */
+.expr-pleading .eye {
+  width: 34px;
+  height: 40px;
+  border-radius: 50%;
+  transform: translateY(-5px);
+}
+
+/* WORRIED - Angled inward at top */
+.expr-worried .eye {
+  width: 30px;
+  height: 36px;
+  border-radius: 6px;
+}
+
+.expr-worried .eye.left {
+  transform: skewY(8deg);
+  border-radius: 2px 10px 6px 6px;
+}
+
+.expr-worried .eye.right {
+  transform: skewY(-8deg);
+  border-radius: 10px 2px 6px 6px;
+}
+
+/* FOCUSED / DETERMINED - Flat top, narrowed */
+.expr-focused .eye {
+  width: 38px;
+  height: 18px;
+  border-radius: 2px 2px 4px 4px;
+}
+
+/* ANNOYED - Narrowed, flat */
+.expr-annoyed .eye {
+  width: 36px;
+  height: 12px;
+  border-radius: 2px;
+  transform: translateY(4px);
+}
+
+/* SURPRISED - Big round eyes */
+.expr-surprised .eye {
+  width: 38px;
+  height: 42px;
+  border-radius: 50%;
+  animation: surprise-pulse 0.3s ease-out;
+}
+
+@keyframes surprise-pulse {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* SKEPTIC - One eye bigger, asymmetric */
+.expr-skeptic .eye.left {
+  width: 28px;
+  height: 20px;
+  border-radius: 4px;
+  transform: translateY(5px);
+}
+
+.expr-skeptic .eye.right {
+  width: 34px;
+  height: 38px;
+  border-radius: 6px;
+}
+
+/* FRUSTRATED / BORED - Half-lidded */
+.expr-frustrated .eye {
+  width: 34px;
+  height: 16px;
+  border-radius: 2px 2px 6px 6px;
+  transform: translateY(8px);
+}
+
+/* UNIMPRESSED - Asymmetric half-lid */
+.expr-unimpressed .eye.left {
+  width: 30px;
+  height: 18px;
+  border-radius: 2px 2px 6px 6px;
+  transform: translateY(6px);
+}
+
+.expr-unimpressed .eye.right {
+  width: 26px;
+  height: 14px;
+  border-radius: 2px;
+  transform: translateY(8px);
+}
+
+/* SLEEPY - Very droopy, half-closed */
+.expr-sleepy .eye {
+  width: 32px;
+  height: 10px;
+  border-radius: 10px 10px 4px 4px;
+  transform: translateY(12px);
+  animation: sleepy-droop 2s ease-in-out infinite;
+}
+
+@keyframes sleepy-droop {
+  0%, 100% { height: 10px; }
+  50% { height: 6px; }
+}
+
+/* SUSPICIOUS - Narrowed, looking sideways */
+.expr-suspicious .eye {
+  width: 36px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.expr-suspicious .eye.left {
+  transform: translateX(4px);
+}
+
+.expr-suspicious .eye.right {
+  transform: translateX(4px);
+}
+
+/* SQUINT - Very narrow */
+.expr-squint .eye {
+  width: 38px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+/* ANGRY - Angled inward, aggressive */
+.expr-angry .eye {
+  width: 34px;
+  height: 20px;
+  border-radius: 2px;
+}
+
+.expr-angry .eye.left {
+  transform: skewY(-12deg) translateY(2px);
+  border-radius: 2px 8px 2px 2px;
+}
+
+.expr-angry .eye.right {
+  transform: skewY(12deg) translateY(2px);
+  border-radius: 8px 2px 2px 2px;
+}
+
+/* FURIOUS - More extreme angry */
+.expr-furious .eye {
+  width: 36px;
+  height: 16px;
+  border-radius: 2px;
+  box-shadow: 
+    0 0 25px rgba(255, 100, 100, 0.5),
+    0 0 40px var(--eye-cyan-glow);
+}
+
+.expr-furious .eye.left {
+  transform: skewY(-18deg) translateY(4px);
+  border-radius: 2px 10px 2px 2px;
+}
+
+.expr-furious .eye.right {
+  transform: skewY(18deg) translateY(4px);
+  border-radius: 10px 2px 2px 2px;
+}
+
+/* SCARED - Wide, shaky */
+.expr-scared .eye {
+  width: 36px;
+  height: 44px;
+  border-radius: 50%;
+  animation: scared-shake 0.1s ease-in-out infinite;
+}
+
+@keyframes scared-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* AWE - Very big, wonder */
+.expr-awe .eye {
+  width: 40px;
+  height: 46px;
+  border-radius: 50%;
+  box-shadow: 
+    0 0 30px var(--eye-cyan-glow),
+    0 0 60px rgba(0, 229, 204, 0.4),
+    inset 0 0 15px rgba(255, 255, 255, 0.4);
+}
+
+/* LISTENING - Slightly wider, attentive */
+.expr-listening .eye {
+  width: 34px;
+  height: 40px;
+  border-radius: 8px;
+  animation: listening-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes listening-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 20px var(--eye-cyan-glow);
+  }
+  50% { 
+    box-shadow: 0 0 35px var(--eye-cyan-glow), 0 0 50px rgba(0, 229, 204, 0.4);
+  }
+}
+
+/* THINKING - Looking up/away */
+.expr-thinking .eye {
+  width: 30px;
+  height: 34px;
+  border-radius: 6px;
+  transform: translateY(-6px) translateX(3px);
+}
+
+.expr-thinking .eye.left {
+  transform: translateY(-6px) translateX(5px);
+}
+
+/* LOVE - Soft, warm */
+.expr-love .eye {
+  width: 36px;
+  height: 14px;
+  border-radius: 20px 20px 6px 6px;
+  transform: translateY(6px);
+  box-shadow: 
+    0 0 25px rgba(255, 100, 150, 0.5),
+    0 0 40px var(--eye-cyan-glow);
+}
+
+/* EXCITED - Big and bouncy */
+.expr-excited .eye {
+  width: 38px;
+  height: 42px;
+  border-radius: 50%;
+  animation: excited-bounce 0.4s ease-in-out infinite;
+}
+
+@keyframes excited-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.05); }
+}
+
+/* CONFUSED - Asymmetric, tilted */
+.expr-confused .eye.left {
+  width: 30px;
+  height: 32px;
+  border-radius: 6px;
+  transform: translateY(-4px);
+}
+
+.expr-confused .eye.right {
+  width: 26px;
+  height: 38px;
+  border-radius: 6px;
+  transform: translateY(4px);
+}
+
+/* ERROR / DEAD - X eyes */
+.expr-error .eye,
+.expr-dead .eye {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  box-shadow: none;
+  position: relative;
+}
+
+.expr-error .eye::before,
+.expr-error .eye::after,
+.expr-dead .eye::before,
+.expr-dead .eye::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 6px;
+  background: #FF6B6B;
+  top: 50%;
+  left: 0;
+  box-shadow: 0 0 15px rgba(255, 100, 100, 0.8);
+}
+
+.expr-error .eye::before,
+.expr-dead .eye::before {
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.expr-error .eye::after,
+.expr-dead .eye::after {
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+/* WINK */
+.expr-wink .eye.left {
+  width: 34px;
+  height: 12px;
+  border-radius: 20px 20px 4px 4px;
+  transform: translateY(8px);
+}
+
+.expr-wink .eye.right {
+  width: 32px;
+  height: 38px;
+  border-radius: 6px;
+}
+
+/* LOOK LEFT */
+.expr-lookLeft .eye {
+  width: 32px;
+  height: 38px;
+  border-radius: 6px;
+  transform: translateX(-8px);
+}
+
+/* LOOK RIGHT */
+.expr-lookRight .eye {
+  width: 32px;
+  height: 38px;
+  border-radius: 6px;
+  transform: translateX(8px);
+}
+
+/* LOOK UP */
+.expr-lookUp .eye {
+  width: 32px;
+  height: 38px;
+  border-radius: 6px;
+  transform: translateY(-8px);
+}
+
+/* LOOK DOWN */
+.expr-lookDown .eye {
+  width: 32px;
+  height: 38px;
+  border-radius: 6px;
+  transform: translateY(8px);
+}
+
+/* ==================== BODY ==================== */
+.body {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  margin-top: -12px;
+  z-index: 5;
+  width: 200px;
+}
+
+.chassis {
+  width: 140px;
+  height: 55px;
+  background: linear-gradient(180deg, var(--kuchi-blue-light) 0%, var(--kuchi-blue) 50%, var(--kuchi-blue-dark) 100%);
+  border: 4px solid var(--pixel-border);
+  border-radius: 12px 12px 18px 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  z-index: 6;
+}
+
+.chassis::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  width: 35px;
+  height: 12px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 100%);
+  border-radius: 6px;
+}
+
+.chest-plate {
+  width: 70px;
+  height: 32px;
+  background: linear-gradient(180deg, var(--kuchi-yellow-light) 0%, var(--kuchi-yellow) 60%, var(--kuchi-yellow-dark) 100%);
+  border: 3px solid var(--pixel-border);
+  border-radius: 8px;
+  position: relative;
+}
+
+.chest-plate::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(0,0,0,0.15);
+  border-radius: 50%;
+}
+
+/* Arms */
+.arm {
+  position: absolute;
+  width: 24px;
+  height: 55px;
+  background: linear-gradient(90deg, var(--kuchi-gray-dark) 0%, var(--kuchi-gray) 50%, var(--kuchi-gray-dark) 100%);
+  border: 3px solid var(--pixel-border);
+  border-radius: 10px 10px 14px 14px;
+  top: 3px;
+  z-index: 4;
+  transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  transform-origin: top center;
+}
+
+.arm.left { left: 8px; }
+.arm.right { right: 8px; }
+
+.arm::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(180deg, var(--kuchi-gray) 0%, var(--kuchi-gray-dark) 100%);
+  border: 3px solid var(--pixel-border);
+  border-radius: 50%;
+}
+
+.arm::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 4px;
+  background: var(--kuchi-gray-dark);
+  border-radius: 2px;
+}
+
+/* Body animations */
+.wave .arm.right {
+  animation: wave-arm 0.4s ease-in-out infinite;
+}
+
+@keyframes wave-arm {
+  0%, 100% { transform: rotate(-25deg); }
+  50% { transform: rotate(-55deg); }
+}
+
+/* ==================== TREADS ==================== */
+.treads {
+  display: flex;
+  justify-content: space-between;
+  width: 180px;
+  margin-top: -8px;
+  position: relative;
+  z-index: 3;
+}
+
+.tread {
+  width: 50px;
+  height: 75px;
+  background: linear-gradient(90deg, #3a3a3a 0%, #5a5a5a 30%, #5a5a5a 70%, #3a3a3a 100%);
+  border: 4px solid var(--pixel-border);
+  border-radius: 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+}
+
+.tread-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  padding: 12px 6px;
+  overflow: hidden;
+}
+
+.tread-line {
+  width: 100%;
+  height: 8px;
+  background: linear-gradient(180deg, #2a2a2a 0%, #3a3a3a 50%, #2a2a2a 100%);
+  border-radius: 3px;
+  animation: tread-scroll 0.25s linear infinite;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+@keyframes tread-scroll {
+  from { transform: translateY(-4px); }
+  to { transform: translateY(4px); }
+}
+
+.wheel {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  background: radial-gradient(circle at 35% 35%, #888 0%, #555 50%, #333 100%);
+  border: 4px solid var(--pixel-border);
+  border-radius: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  box-shadow: inset -3px -3px 8px rgba(0,0,0,0.4), inset 3px 3px 8px rgba(255,255,255,0.1);
+}
+
+.wheel::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle at 30% 30%, #666, #333);
+  border-radius: 50%;
+  border: 2px solid #222;
+}
+
+.wheel.top { top: 4px; }
+.wheel.bottom { bottom: 4px; }
+
+/* ==================== STATUS TEXT ==================== */
+.status-text {
+  position: absolute;
+  bottom: 120px;
+  font-size: 18px;
+  color: var(--status-cyan);
+  text-shadow: 0 0 15px var(--status-cyan), 0 0 30px rgba(0, 255, 204, 0.5);
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 2px;
+  animation: text-glow 2s ease-in-out infinite;
+  text-transform: uppercase;
+}
+
+@keyframes text-glow {
+  0%, 100% { opacity: 0.85; text-shadow: 0 0 15px var(--status-cyan); }
+  50% { opacity: 1; text-shadow: 0 0 25px var(--status-cyan), 0 0 40px rgba(0, 255, 204, 0.8); }
+}
+
+/* ==================== MICROPHONE BUTTON ==================== */
+.mic-btn {
+  position: absolute;
+  bottom: 30px;
+  width: 85px;
+  height: 85px;
+  border-radius: 50%;
+  border: 4px solid var(--status-cyan);
+  background: rgba(0, 255, 204, 0.08);
+  color: white;
+  font-size: 38px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  backdrop-filter: blur(10px);
+  box-shadow: 
+    0 0 30px rgba(0, 255, 204, 0.3),
+    inset 0 0 20px rgba(0, 255, 204, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mic-btn:hover {
+  transform: scale(1.12);
+  background: rgba(0, 255, 204, 0.15);
+  box-shadow: 
+    0 0 50px rgba(0, 255, 204, 0.5),
+    inset 0 0 30px rgba(0, 255, 204, 0.2);
+}
+
+.mic-btn:active {
+  transform: scale(0.95);
+}
+
+.mic-btn.listening {
+  background: var(--status-cyan);
+  border-color: white;
+  animation: listening-pulse-btn 0.8s ease-in-out infinite;
+  box-shadow: 
+    0 0 60px var(--status-cyan),
+    0 0 100px rgba(0, 255, 204, 0.5);
+}
+
+@keyframes listening-pulse-btn {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 60px var(--status-cyan);
+  }
+  50% { 
+    transform: scale(1.08); 
+    box-shadow: 0 0 80px var(--status-cyan), 0 0 120px rgba(0, 255, 204, 0.6);
+  }
+}
+
+/* ==================== MODAL ==================== */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(12px);
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  background: linear-gradient(145deg, #2a2a3e 0%, #1a1a2e 50%, #12121f 100%);
+  padding: 40px;
+  border-radius: 24px;
+  width: 90%;
+  max-width: 450px;
+  border: 3px solid var(--status-cyan);
+  box-shadow: 
+    0 0 60px rgba(0, 255, 204, 0.3),
+    inset 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content h2 {
+  color: var(--status-cyan);
+  margin-bottom: 28px;
+  font-size: 26px;
+  text-align: center;
+  text-shadow: 0 0 15px var(--status-cyan);
+  letter-spacing: 2px;
+}
+
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 10px;
+  color: #aaa;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: white;
+  font-size: 15px;
+  transition: all 0.3s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--status-cyan);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.25);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 35px;
+}
+
+.btn-primary,
+.btn-secondary {
+  flex: 1;
+  padding: 15px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--status-cyan) 0%, #00cc99 100%);
+  color: #000;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--kuchi-yellow) 0%, #FFB300 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(255, 204, 0, 0.4);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 768px) {
+  .robot-face {
+    transform: scale(1.1);
+  }
+
+  .robot-face:hover {
+    transform: scale(1.15);
+  }
+
+  .status-text {
+    font-size: 14px;
+    bottom: 105px;
+    letter-spacing: 1px;
+  }
+
+  .mic-btn {
+    width: 72px;
+    height: 72px;
+    font-size: 32px;
+    bottom: 25px;
+  }
+
+  .settings-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    top: 15px;
+    right: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .robot-face {
+    transform: scale(0.9);
+  }
+
+  .status-text {
+    font-size: 12px;
+    bottom: 95px;
+  }
+
+  .mic-btn {
+    width: 65px;
+    height: 65px;
+    font-size: 28px;
+    bottom: 20px;
+  }
+}

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
+  <title>Kuchi - Robot Assistant</title>
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Settings Button -->
+    <button id="settingsBtn" class="settings-btn" aria-label="Settings">⚙️</button>
+
+    <!-- Robot Face Container -->
+    <div id="robotFace" class="robot-face"></div>
+
+    <!-- Status Text -->
+    <div id="statusText" class="status-text">Configuring...</div>
+
+    <!-- Microphone Button -->
+    <button id="micBtn" class="mic-btn" aria-label="Tap to speak">
+      <span class="mic-icon">🎤</span>
+    </button>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Settings</h2>
+        <div class="form-group">
+          <label for="apiKeyInput">OpenAI API Key</label>
+          <input
+            type="password"
+            id="apiKeyInput"
+            placeholder="sk-..."
+            autocomplete="off"
+          >
+        </div>
+        <div class="form-group">
+          <label for="serpApiKeyInput">SerpAPI Key (for web search)</label>
+          <input
+            type="password"
+            id="serpApiKeyInput"
+            placeholder="Your SerpAPI key..."
+            autocomplete="off"
+          >
+          <small style="color: #888; font-size: 12px; margin-top: 4px; display: block;">
+            Get your free key at <a href="https://serpapi.com/manage-api-key" target="_blank" style="color: #667eea;">serpapi.com</a>
+          </small>
+        </div>
+        <div class="modal-actions">
+          <button id="saveBtn" class="btn-primary">Save</button>
+          <button id="cancelBtn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="loading hidden">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

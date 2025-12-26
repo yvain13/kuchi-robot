@@ -1,0 +1,17 @@
+{
+  "user": {
+    "name": "Tushar Mishra",
+    "preferences": {
+      "communication_style": "casual and friendly",
+      "topics_of_interest": []
+    },
+    "context": "This is a conversation memory file. The assistant will remember information about you from previous conversations.",
+    "notes": []
+  },
+  "facts": [
+    "You are talking to Kuchi, a friendly robot assistant",
+    "Kuchi has expressive animated faces that show emotions",
+    "The conversation happens through voice"
+  ],
+  "last_updated": "2025-12-26"
+}
