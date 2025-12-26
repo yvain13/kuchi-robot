@@ -126,8 +126,14 @@ export class VoiceManager {
    */
   speak(text: string): Promise<void> {
     return new Promise((resolve, reject) => {
+      // Cancel any ongoing speech
       if (this.isSpeaking) {
         this.synthesis.cancel();
+      }
+
+      // iOS/Safari fix: Resume synthesis to ensure it's ready
+      if (this.synthesis.paused) {
+        this.synthesis.resume();
       }
 
       // Remove emojis and clean text for better speech
@@ -139,48 +145,81 @@ export class VoiceManager {
       utterance.volume = 1.0;
       utterance.lang = 'en-US';
 
-      // Try to use a higher quality voice if available
+      // iOS/Safari fix: Get voices and wait if not loaded
+      const setVoiceAndSpeak = () => {
+        const voices = this.synthesis.getVoices();
+
+        if (voices.length > 0) {
+          // Try to use a higher quality voice if available
+          const preferredVoice = voices.find(voice =>
+            voice.name.includes('Google') ||
+            voice.name.includes('Natural') ||
+            voice.name.includes('Enhanced') ||
+            voice.name.includes('Premium') ||
+            voice.name.includes('Samantha') || // iOS default high-quality voice
+            voice.lang === 'en-US'
+          );
+          if (preferredVoice) {
+            utterance.voice = preferredVoice;
+          }
+        }
+
+        utterance.onstart = () => {
+          this.isSpeaking = true;
+          // Stop listening while speaking
+          if (this.isListening) {
+            this.stopListening();
+          }
+          this.callbacks.onSpeakingStart?.();
+        };
+
+        utterance.onend = () => {
+          this.isSpeaking = false;
+          this.callbacks.onSpeakingEnd?.();
+
+          // Resume listening in continuous mode
+          if (this.continuousMode) {
+            setTimeout(() => {
+              this.startListening();
+            }, 500);
+          }
+
+          resolve();
+        };
+
+        utterance.onerror = (event) => {
+          this.isSpeaking = false;
+          console.error('Speech error:', event);
+
+          // On iOS, 'interrupted' error is common but not fatal
+          if (event.error === 'interrupted') {
+            this.callbacks.onSpeakingEnd?.();
+            resolve();
+          } else {
+            this.callbacks.onError?.(`Speech synthesis error: ${event.error}`);
+            reject(event.error);
+          }
+        };
+
+        // iOS fix: Cancel before speaking to ensure clean state
+        this.synthesis.cancel();
+
+        // Small delay before speaking helps on iOS
+        setTimeout(() => {
+          this.synthesis.speak(utterance);
+        }, 50);
+      };
+
+      // Check if voices are loaded
       const voices = this.synthesis.getVoices();
-      const preferredVoice = voices.find(voice =>
-        voice.name.includes('Google') ||
-        voice.name.includes('Natural') ||
-        voice.name.includes('Enhanced') ||
-        voice.name.includes('Premium')
-      );
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
+      if (voices.length === 0) {
+        // Voices not loaded yet, wait for them (iOS requirement)
+        this.synthesis.onvoiceschanged = () => {
+          setVoiceAndSpeak();
+        };
+      } else {
+        setVoiceAndSpeak();
       }
-
-      utterance.onstart = () => {
-        this.isSpeaking = true;
-        // Stop listening while speaking
-        if (this.isListening) {
-          this.stopListening();
-        }
-        this.callbacks.onSpeakingStart?.();
-      };
-
-      utterance.onend = () => {
-        this.isSpeaking = false;
-        this.callbacks.onSpeakingEnd?.();
-
-        // Resume listening in continuous mode
-        if (this.continuousMode) {
-          setTimeout(() => {
-            this.startListening();
-          }, 500);
-        }
-
-        resolve();
-      };
-
-      utterance.onerror = (event) => {
-        this.isSpeaking = false;
-        this.callbacks.onError?.(`Speech synthesis error: ${event.error}`);
-        reject(event.error);
-      };
-
-      this.synthesis.speak(utterance);
     });
   }
 
