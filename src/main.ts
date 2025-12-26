@@ -138,6 +138,9 @@ class KuchiApp {
   }
 
   private handleMicClick(): void {
+    // iOS: Unlock audio on first tap (must be in user gesture handler)
+    this.voiceManager.unlockAudio();
+
     if (this.appState === 'processing' || this.appState === 'speaking') {
       return;
     }
