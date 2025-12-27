@@ -131,6 +131,17 @@ export class DragManager {
    * Handle touch start
    */
   private handleTouchStart = (e: TouchEvent): void => {
+    // Only handle touches on the robot itself, not on UI elements
+    const target = e.target as HTMLElement;
+    const isMicButton = target.closest('#micBtn');
+    const isSettingsButton = target.closest('#settingsBtn');
+    const isModal = target.closest('.modal');
+
+    // Don't interfere with UI button touches
+    if (isMicButton || isSettingsButton || isModal) {
+      return;
+    }
+
     e.preventDefault();
     const touch = e.touches[0];
 
@@ -184,6 +195,7 @@ export class DragManager {
   private handleTouchMove = (e: TouchEvent): void => {
     if (!this.dragState.isDragging) return;
 
+    // Only prevent default if we're actually dragging
     e.preventDefault();
 
     const touch = e.touches[0];
@@ -232,7 +244,9 @@ export class DragManager {
       }
     }
 
+    // Clean up drag state
     this.dragState.isDragging = false;
+    this.dragState.velocity = 0;
     this.element.style.cursor = 'grab';
 
     this.savePosition();
@@ -265,7 +279,9 @@ export class DragManager {
       }
     }
 
+    // Clean up drag state
     this.dragState.isDragging = false;
+    this.dragState.velocity = 0;
 
     this.savePosition();
 

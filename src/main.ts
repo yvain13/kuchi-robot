@@ -151,17 +151,24 @@ class KuchiApp {
       if (savedVoice) {
         this.voiceSelect.value = savedVoice;
       }
+
+      console.log(`📢 Loaded ${voices.length} voices`);
     };
 
     // Try to load immediately
     populateVoiceList();
 
-    // Also listen for voiceschanged event
-    window.speechSynthesis.onvoiceschanged = populateVoiceList;
+    // Also listen for voiceschanged event (iOS premium voices load async)
+    window.speechSynthesis.onvoiceschanged = () => {
+      console.log('🔄 Voices changed event fired');
+      populateVoiceList();
+    };
 
-    // Fallback: Try loading after delays
+    // Fallback: Try loading after delays (iOS needs more time for premium voices)
     setTimeout(populateVoiceList, 100);
     setTimeout(populateVoiceList, 500);
+    setTimeout(populateVoiceList, 1000);
+    setTimeout(populateVoiceList, 2000);
   }
 
   private setupEventListeners(): void {
@@ -387,6 +394,9 @@ class KuchiApp {
         this.memoryNotesInput.value = memory.user.notes.join('\n');
       }
     }
+
+    // Refresh voices when settings open (helps iOS premium voices appear)
+    this.loadVoices();
 
     this.settingsModal.classList.remove('hidden');
     this.apiKeyInput.focus();
