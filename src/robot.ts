@@ -15,8 +15,11 @@ export type Expression =
   | 'love'
   | 'excited'
   | 'awe'
+  | 'starry'
+  | 'mischievous'
   // Negative emotions
   | 'sad'
+  | 'crying'
   | 'worried'
   | 'angry'
   | 'furious'
@@ -30,10 +33,13 @@ export type Expression =
   | 'unimpressed'
   | 'annoyed'
   | 'sleepy'
+  | 'drowsy'
   | 'squint'
   | 'focused'
   | 'pleading'
   | 'wink'
+  | 'dizzy'
+  | 'googly'
   // Interaction states
   | 'listening'
   | 'thinking'
@@ -147,11 +153,11 @@ export class RobotFace {
     // Remove all expression classes
     const allExpressions = [
       'expr-neutral', 'expr-idle', 'expr-blink',
-      'expr-happy', 'expr-glee', 'expr-love', 'expr-excited', 'expr-awe',
-      'expr-sad', 'expr-worried', 'expr-angry', 'expr-furious', 'expr-scared', 'expr-frustrated',
+      'expr-happy', 'expr-glee', 'expr-love', 'expr-excited', 'expr-awe', 'expr-starry', 'expr-mischievous',
+      'expr-sad', 'expr-crying', 'expr-worried', 'expr-angry', 'expr-furious', 'expr-scared', 'expr-frustrated',
       'expr-surprised', 'expr-confused', 'expr-skeptic', 'expr-suspicious',
-      'expr-unimpressed', 'expr-annoyed', 'expr-sleepy', 'expr-squint', 'expr-focused',
-      'expr-pleading', 'expr-wink',
+      'expr-unimpressed', 'expr-annoyed', 'expr-sleepy', 'expr-drowsy', 'expr-squint', 'expr-focused',
+      'expr-pleading', 'expr-wink', 'expr-dizzy', 'expr-googly',
       'expr-listening', 'expr-thinking', 'expr-speaking', 'expr-error', 'expr-dead',
       'expr-lookLeft', 'expr-lookRight', 'expr-lookUp', 'expr-lookDown'
     ];
@@ -179,9 +185,9 @@ export class RobotFace {
     const blink = () => {
       // Don't blink during certain expressions
       const noBlinkExpressions: Expression[] = [
-        'blink', 'happy', 'glee', 'sleepy', 'squint', 'wink',
+        'blink', 'happy', 'glee', 'sleepy', 'drowsy', 'squint', 'wink',
         'annoyed', 'focused', 'frustrated', 'error', 'dead',
-        'angry', 'furious', 'love'
+        'angry', 'furious', 'love', 'dizzy', 'googly', 'starry', 'crying'
       ];
 
       if (noBlinkExpressions.includes(this.currentExpression)) {
@@ -235,6 +241,7 @@ export class RobotFace {
           { expr: 'lookDown' as Expression, duration: 700 },
           { expr: 'blink' as Expression, duration: 150 },
           { expr: 'squint' as Expression, duration: 600 },
+          { expr: 'wink' as Expression, duration: 400 },
           { expr: 'neutral' as Expression, duration: 500 }
         ];
 

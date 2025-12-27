@@ -100,75 +100,101 @@ class KuchiApp {
   }
 
   private loadVoices(): void {
-    const populateVoiceList = () => {
-      const voices = window.speechSynthesis.getVoices();
+    // Force speech synthesis to wake up and load voices
+    if (window.speechSynthesis.getVoices().length === 0) {
+      console.log('🔄 Triggering voice load...');
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+    }
 
-      if (voices.length === 0) {
-        return;
-      }
-
-      // Clear existing options
-      this.voiceSelect.innerHTML = '';
-
-      // Add default option
-      const defaultOption = document.createElement('option');
-      defaultOption.value = '';
-      defaultOption.textContent = 'Auto (Recommended)';
-      this.voiceSelect.appendChild(defaultOption);
-
-      // Group voices by language
-      const englishVoices = voices.filter(v => v.lang.startsWith('en'));
-      const otherVoices = voices.filter(v => !v.lang.startsWith('en'));
-
-      // Add English voices first
-      if (englishVoices.length > 0) {
-        const enGroup = document.createElement('optgroup');
-        enGroup.label = 'English Voices';
-        englishVoices.forEach(voice => {
-          const option = document.createElement('option');
-          option.value = voice.name;
-          option.textContent = `${voice.name} (${voice.lang})${voice.localService ? ' - Local' : ''}`;
-          enGroup.appendChild(option);
-        });
-        this.voiceSelect.appendChild(enGroup);
-      }
-
-      // Add other voices
-      if (otherVoices.length > 0) {
-        const otherGroup = document.createElement('optgroup');
-        otherGroup.label = 'Other Voices';
-        otherVoices.forEach(voice => {
-          const option = document.createElement('option');
-          option.value = voice.name;
-          option.textContent = `${voice.name} (${voice.lang})${voice.localService ? ' - Local' : ''}`;
-          otherGroup.appendChild(option);
-        });
-        this.voiceSelect.appendChild(otherGroup);
-      }
-
-      // Load saved voice preference
-      const savedVoice = localStorage.getItem(this.VOICE_STORAGE);
-      if (savedVoice) {
-        this.voiceSelect.value = savedVoice;
-      }
-
-      console.log(`📢 Loaded ${voices.length} voices`);
-    };
-
-    // Try to load immediately
-    populateVoiceList();
+    this.populateVoiceList();
 
     // Also listen for voiceschanged event (iOS premium voices load async)
     window.speechSynthesis.onvoiceschanged = () => {
       console.log('🔄 Voices changed event fired');
-      populateVoiceList();
+      this.populateVoiceList();
     };
 
     // Fallback: Try loading after delays (iOS needs more time for premium voices)
-    setTimeout(populateVoiceList, 100);
-    setTimeout(populateVoiceList, 500);
-    setTimeout(populateVoiceList, 1000);
-    setTimeout(populateVoiceList, 2000);
+    setTimeout(() => this.populateVoiceList(), 100);
+    setTimeout(() => this.populateVoiceList(), 500);
+    setTimeout(() => this.populateVoiceList(), 1000);
+    setTimeout(() => this.populateVoiceList(), 2000);
+    setTimeout(() => this.populateVoiceList(), 3000);
+  }
+
+  private populateVoiceList(): void {
+    const voices = window.speechSynthesis.getVoices();
+
+    if (voices.length === 0) {
+      console.log('⏳ No voices available yet...');
+      return;
+    }
+
+    // Clear existing options
+    this.voiceSelect.innerHTML = '';
+
+    // Add default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Auto (Recommended)';
+    this.voiceSelect.appendChild(defaultOption);
+
+    // Separate premium and regular voices
+    const premiumVoices = voices.filter(v =>
+      v.lang.startsWith('en') && (v.name.includes('Premium') || v.name.includes('Enhanced'))
+    );
+    const regularEnglishVoices = voices.filter(v =>
+      v.lang.startsWith('en') && !v.name.includes('Premium') && !v.name.includes('Enhanced')
+    );
+    const otherVoices = voices.filter(v => !v.lang.startsWith('en'));
+
+    // Add Premium voices first (if any)
+    if (premiumVoices.length > 0) {
+      const premiumGroup = document.createElement('optgroup');
+      premiumGroup.label = '⭐ Premium English Voices';
+      premiumVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.name;
+        option.textContent = `${voice.name} ${voice.localService ? '✓' : '(Remote)'}`;
+        premiumGroup.appendChild(option);
+      });
+      this.voiceSelect.appendChild(premiumGroup);
+      console.log(`⭐ Found ${premiumVoices.length} premium voices`);
+    }
+
+    // Add regular English voices
+    if (regularEnglishVoices.length > 0) {
+      const enGroup = document.createElement('optgroup');
+      enGroup.label = 'English Voices';
+      regularEnglishVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.name;
+        option.textContent = `${voice.name} (${voice.lang})${voice.localService ? ' - Local' : ''}`;
+        enGroup.appendChild(option);
+      });
+      this.voiceSelect.appendChild(enGroup);
+    }
+
+    // Add other voices
+    if (otherVoices.length > 0) {
+      const otherGroup = document.createElement('optgroup');
+      otherGroup.label = 'Other Languages';
+      otherVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.name;
+        option.textContent = `${voice.name} (${voice.lang})${voice.localService ? ' - Local' : ''}`;
+        otherGroup.appendChild(option);
+      });
+      this.voiceSelect.appendChild(otherGroup);
+    }
+
+    // Load saved voice preference
+    const savedVoice = localStorage.getItem(this.VOICE_STORAGE);
+    if (savedVoice) {
+      this.voiceSelect.value = savedVoice;
+    }
+
+    console.log(`📢 Loaded ${voices.length} voices (${premiumVoices.length} premium, ${regularEnglishVoices.length} regular English)`);
   }
 
   private setupEventListeners(): void {
@@ -384,7 +410,6 @@ class KuchiApp {
 
     this.apiKeyInput.value = apiKey || '';
     this.serpApiKeyInput.value = serpApiKey || '';
-    this.voiceSelect.value = selectedVoice || '';
 
     // Load memory data if agent exists
     if (this.agent) {
@@ -396,7 +421,13 @@ class KuchiApp {
     }
 
     // Refresh voices when settings open (helps iOS premium voices appear)
-    this.loadVoices();
+    console.log('⚙️ Opening settings - refreshing voices...');
+    this.populateVoiceList();
+
+    // Also set saved voice after population
+    if (selectedVoice) {
+      this.voiceSelect.value = selectedVoice;
+    }
 
     this.settingsModal.classList.remove('hidden');
     this.apiKeyInput.focus();
