@@ -7,6 +7,7 @@ import { RobotFace, Expression } from './robot';
 import { VoiceManager } from './voice';
 import { KuchiAgent } from './openai';
 import { DragManager } from './interactions';
+import { MusicManager } from './music';
 import './styles.css';
 
 type AppState = 
@@ -20,6 +21,7 @@ class KuchiApp {
   private robotFace: RobotFace;
   private voiceManager: VoiceManager;
   private dragManager: DragManager;
+  private musicManager: MusicManager;
   private agent: KuchiAgent | null = null;
 
   // DOM Elements
@@ -81,6 +83,15 @@ class KuchiApp {
       onDragMove: (velocity) => this.handleDragMove(velocity),
       onDragEnd: () => this.handleDragEnd(),
       onZoneTap: (zone) => this.handleZoneTap(zone),
+    });
+
+    // Initialize music manager
+    this.musicManager = new MusicManager(() => {
+      // When music ends, return to neutral state
+      if (this.appState !== 'listening' && this.appState !== 'speaking') {
+        this.robotFace.setExpression('neutral');
+        this.updateStatus('Tap to speak');
+      }
     });
 
     // Load saved voice preference
@@ -264,6 +275,14 @@ class KuchiApp {
     // iOS: Unlock audio on first tap (must be in user gesture handler)
     this.voiceManager.unlockAudio();
 
+    // Stop any playing music when mic is clicked
+    if (this.musicManager.isPlaying()) {
+      this.musicManager.stop();
+      this.robotFace.setExpression('neutral');
+      this.updateStatus('Music stopped');
+      console.log('🎵 Music stopped by user');
+    }
+
     if (this.appState === 'processing' || this.appState === 'speaking') {
       return;
     }
@@ -326,14 +345,36 @@ class KuchiApp {
       const response = await this.agent.sendMessage(text);
       console.log('🤖 Kuchi:', response);
 
+      // Check if this is a music playback request
+      if (response.includes('🎵PLAY_MUSIC🎵')) {
+        // Speak confirmation first
+        const confirmationMessage = "Sure! Let me play some music for you.";
+        this.speakingExpression = 'excited';
+        this.robotFace.setExpression(this.speakingExpression);
+        this.robotFace.setSpeaking(true);
+        this.setState('speaking');
+        this.updateStatus('Speaking...');
+        await this.voiceManager.speak(confirmationMessage);
+
+        // Play music in background and show love expression
+        this.handlePlayMusic();
+
+        // Add context to agent's memory that music is playing
+        if (this.agent) {
+          await this.agent.sendMessage('[SYSTEM: Music is now playing in the background]');
+        }
+
+        return;
+      }
+
       // Determine expression based on sentiment
       // This expression will stay FIXED during the entire speech
       this.speakingExpression = this.robotFace.getExpressionFromSentiment(response);
-      
+
       // Set the expression BEFORE speaking starts
       this.robotFace.setExpression(this.speakingExpression);
       this.robotFace.setSpeaking(true);
-      
+
       this.setState('speaking');
       this.updateStatus('Speaking...');
 
@@ -546,6 +587,20 @@ class KuchiApp {
         }, 1500);
         break;
     }
+  }
+
+  /**
+   * Handle music playback
+   */
+  private handlePlayMusic(): void {
+    console.log('🎵 Starting music playback');
+
+    // Show love expression while enjoying music
+    this.robotFace.setExpression('love');
+    this.updateStatus('🎵 Enjoying music...');
+
+    // Play music in background
+    this.musicManager.play();
   }
 
   private saveSettings(): void {

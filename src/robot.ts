@@ -315,10 +315,21 @@ export class RobotFace {
     this.isSleeping = false;
     this.lastActivityTime = Date.now();
 
-    // Remove zzz animation
+    // Remove zzz animation - check both container and screen
     const zzzContainer = this.container.querySelector('.sleeping-zzz');
     if (zzzContainer) {
       zzzContainer.remove();
+      console.log('✅ Removed zzz animation');
+    }
+
+    // Double-check by also searching in screen element
+    const screen = this.container.querySelector('.screen');
+    if (screen) {
+      const zzzInScreen = screen.querySelector('.sleeping-zzz');
+      if (zzzInScreen) {
+        zzzInScreen.remove();
+        console.log('✅ Removed zzz from screen');
+      }
     }
 
     // Show surprised expression briefly when woken up
