@@ -8,31 +8,11 @@ export class MusicManager {
   private audio: HTMLAudioElement | null = null;
   private isCurrentlyPlaying = false;
   private onMusicEnd?: () => void;
-  private hasUserInteracted = false;
+  private audioContextWarmedUp = false;
 
   constructor(onMusicEnd?: () => void) {
     this.onMusicEnd = onMusicEnd;
     this.initializeAudio();
-    this.setupUserInteractionListener();
-  }
-
-  /**
-   * Setup listener to detect user interaction
-   * Required for browser autoplay policies
-   */
-  private setupUserInteractionListener(): void {
-    const enableAudioPlayback = () => {
-      this.hasUserInteracted = true;
-      console.log('🎵 User interaction detected - audio playback enabled');
-      // Remove listeners after first interaction
-      document.removeEventListener('click', enableAudioPlayback);
-      document.removeEventListener('touchstart', enableAudioPlayback);
-      document.removeEventListener('keydown', enableAudioPlayback);
-    };
-
-    document.addEventListener('click', enableAudioPlayback, { once: true });
-    document.addEventListener('touchstart', enableAudioPlayback, { once: true });
-    document.addEventListener('keydown', enableAudioPlayback, { once: true });
   }
 
   /**
@@ -69,8 +49,48 @@ export class MusicManager {
   }
 
   /**
+   * Warm up audio context for playback
+   * MUST be called from a user gesture (click, touch, keypress)
+   * This prepares the browser to allow audio playback
+   */
+  warmUpAudio(): void {
+    if (this.audioContextWarmedUp) {
+      console.log('🎵 Audio context already warmed up');
+      return;
+    }
+
+    if (!this.audio) {
+      console.warn('🎵 Audio not ready yet, skipping warmup');
+      return;
+    }
+
+    try {
+      // Create a silent audio element and play it briefly
+      // This tricks the browser into unlocking audio playback
+      const silentAudio = new Audio();
+      silentAudio.volume = 0; // Silent
+      
+      const playPromise = silentAudio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            silentAudio.pause();
+            silentAudio.currentTime = 0;
+            this.audioContextWarmedUp = true;
+            console.log('🎵 Audio context warmed up successfully');
+          })
+          .catch((error) => {
+            console.log('�� Warmup attempt (expected to fail silently):', error.name);
+          });
+      }
+    } catch (error) {
+      console.log('🎵 Warmup error (expected):', error);
+    }
+  }
+
+  /**
    * Play the music
-   * Requires user interaction in browsers with autoplay policies
+   * Should be called after warmUpAudio() has been triggered
    */
   async play(): Promise<void> {
     if (!this.audio) {
@@ -83,10 +103,8 @@ export class MusicManager {
       return;
     }
 
-    // Check if user has interacted with page (required by browser autoplay policies)
-    if (!this.hasUserInteracted) {
-      console.warn('🎵 Autoplay not allowed - requires user interaction. Please interact with the page first.');
-      // Attempt to play anyway - browser will block it silently or show error
+    if (!this.audioContextWarmedUp) {
+      console.warn('�� Audio context not warmed up yet. Click mic first to enable audio.');
     }
 
     try {
@@ -104,10 +122,10 @@ export class MusicManager {
           })
           .catch((error: Error) => {
             console.error('🎵 Failed to play music:', error.message);
-            // NotAllowedError: autoplay policy
-            // NotSupportedError: format not supported
             if (error.name === 'NotAllowedError') {
-              console.warn('🎵 Autoplay blocked by browser policy. User interaction required.');
+              console.warn('🎵 Autoplay blocked. Try clicking the mic button first.');
+            } else if (error.name === 'NotSupportedError') {
+              console.warn('🎵 Audio format not supported.');
             }
             this.isCurrentlyPlaying = false;
           });
@@ -155,10 +173,10 @@ export class MusicManager {
   }
 
   /**
-   * Check if user has interacted with page
+   * Check if audio context is warmed up
    */
-  hasUserInteractedWithPage(): boolean {
-    return this.hasUserInteracted;
+  isAudioContextWarmedUp(): boolean {
+    return this.audioContextWarmedUp;
   }
 
   /**

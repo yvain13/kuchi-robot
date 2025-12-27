@@ -275,6 +275,8 @@ class KuchiApp {
     // iOS: Unlock audio on first tap (must be in user gesture handler)
     this.voiceManager.unlockAudio();
 
+    // Warm up audio context for music playback
+    this.musicManager.warmUpAudio();
     // Stop any playing music when mic is clicked
     if (this.musicManager.isPlaying()) {
       this.musicManager.stop();
