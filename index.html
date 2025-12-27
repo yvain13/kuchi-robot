@@ -2,12 +2,45 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  
+  <!-- Mobile viewport with iOS optimizations -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <!-- iOS Web App -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kuchi">
+  
+  <!-- Prevent iOS auto-detection -->
+  <meta name="format-detection" content="telephone=no">
+  
+  <!-- Theme color -->
+  <meta name="theme-color" content="#1a1a2e">
+  
+  <!-- Note: Portrait orientation is enforced only on mobile/tablet devices via CSS and JS -->
+  
   <title>Kuchi - Robot Assistant</title>
+  
+  <!-- Preload background -->
+  <link rel="preload" href="./src/assets/background.png" as="image">
+  
   <link rel="stylesheet" href="/src/styles.css">
+  
+  <style>
+    /* Critical CSS - prevents flash of unstyled content */
+    html {
+      height: -webkit-fill-available;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      overflow: hidden;
+      background: #1a1a2e;
+    }
+  </style>
 </head>
 <body>
   <div id="app">
@@ -36,6 +69,9 @@
             id="apiKeyInput"
             placeholder="sk-..."
             autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
           >
         </div>
         <div class="form-group">
@@ -45,9 +81,21 @@
             id="serpApiKeyInput"
             placeholder="Your SerpAPI key..."
             autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
           >
           <small style="color: #888; font-size: 12px; margin-top: 4px; display: block;">
-            Get your free key at <a href="https://serpapi.com/manage-api-key" target="_blank" style="color: #667eea;">serpapi.com</a>
+            Get your free key at <a href="https://serpapi.com/manage-api-key" target="_blank" style="color: #00E5CC;">serpapi.com</a>
+          </small>
+        </div>
+        <div class="form-group">
+          <label for="voiceSelect">Voice</label>
+          <select id="voiceSelect" class="voice-select">
+            <option value="">Loading voices...</option>
+          </select>
+          <small style="color: #888; font-size: 12px; margin-top: 4px; display: block;">
+            Choose your preferred voice for Kuchi
           </small>
         </div>
         <div class="modal-actions">
@@ -62,6 +110,54 @@
       <div class="spinner"></div>
     </div>
   </div>
+
+  <!-- iOS/Mobile Optimizations -->
+  <script>
+    (function() {
+      // Detect if device is mobile or tablet
+      var isMobileOrTablet = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
+
+      if (isMobileOrTablet) {
+        // Lock to portrait orientation where supported
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('portrait').catch(function() {});
+        }
+
+        // Prevent pinch-to-zoom on iOS
+        document.addEventListener('gesturestart', function(e) {
+          e.preventDefault();
+        }, { passive: false });
+
+        // Prevent double-tap zoom
+        var lastTouchEnd = 0;
+        document.addEventListener('touchend', function(e) {
+          var now = Date.now();
+          if (now - lastTouchEnd <= 300) {
+            e.preventDefault();
+          }
+          lastTouchEnd = now;
+        }, false);
+
+        // Fix iOS 100vh issue
+        function setVH() {
+          var vh = window.innerHeight * 0.01;
+          document.documentElement.style.setProperty('--vh', vh + 'px');
+        }
+        setVH();
+        window.addEventListener('resize', setVH);
+        window.addEventListener('orientationchange', function() {
+          setTimeout(setVH, 100);
+        });
+
+        // Prevent iOS rubber-band scrolling
+        document.body.addEventListener('touchmove', function(e) {
+          if (e.target.closest('.modal-content')) return; // Allow scroll in modal
+          e.preventDefault();
+        }, { passive: false });
+      }
+    })();
+  </script>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

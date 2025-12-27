@@ -27,6 +27,7 @@ class KuchiApp {
   private settingsModal: HTMLElement;
   private apiKeyInput: HTMLInputElement;
   private serpApiKeyInput: HTMLInputElement;
+  private voiceSelect: HTMLSelectElement;
   private saveBtn: HTMLButtonElement;
   private cancelBtn: HTMLButtonElement;
 
@@ -35,6 +36,7 @@ class KuchiApp {
   private speakingExpression: Expression = 'happy';
   private readonly API_KEY_STORAGE = 'kuchi_api_key';
   private readonly SERP_API_KEY_STORAGE = 'kuchi_serp_api_key';
+  private readonly VOICE_STORAGE = 'kuchi_selected_voice';
 
   constructor() {
     console.log('🤖 Initializing Kuchi (Vector Style)...');
@@ -49,6 +51,7 @@ class KuchiApp {
     this.settingsModal = document.getElementById('settingsModal') as HTMLElement;
     this.apiKeyInput = document.getElementById('apiKeyInput') as HTMLInputElement;
     this.serpApiKeyInput = document.getElementById('serpApiKeyInput') as HTMLInputElement;
+    this.voiceSelect = document.getElementById('voiceSelect') as HTMLSelectElement;
     this.saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
     this.cancelBtn = document.getElementById('cancelBtn') as HTMLButtonElement;
 
@@ -65,13 +68,85 @@ class KuchiApp {
       false
     );
 
+    // Load saved voice preference
+    const savedVoice = localStorage.getItem(this.VOICE_STORAGE);
+    if (savedVoice) {
+      this.voiceManager.setPreferredVoice(savedVoice);
+    }
+
     // Initialize agent
     this.initializeAgent();
     this.setupEventListeners();
     this.checkBrowserSupport();
+    this.loadVoices();
 
     this.micBtn.style.display = 'flex';
     console.log('✅ Kuchi initialized (Vector Style)');
+  }
+
+  private loadVoices(): void {
+    const populateVoiceList = () => {
+      const voices = window.speechSynthesis.getVoices();
+
+      if (voices.length === 0) {
+        return;
+      }
+
+      // Clear existing options
+      this.voiceSelect.innerHTML = '';
+
+      // Add default option
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'Auto (Recommended)';
+      this.voiceSelect.appendChild(defaultOption);
+
+      // Group voices by language
+      const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+      const otherVoices = voices.filter(v => !v.lang.startsWith('en'));
+
+      // Add English voices first
+      if (englishVoices.length > 0) {
+        const enGroup = document.createElement('optgroup');
+        enGroup.label = 'English Voices';
+        englishVoices.forEach(voice => {
+          const option = document.createElement('option');
+          option.value = voice.name;
+          option.textContent = `${voice.name} (${voice.lang})${voice.localService ? ' - Local' : ''}`;
+          enGroup.appendChild(option);
+        });
+        this.voiceSelect.appendChild(enGroup);
+      }
+
+      // Add other voices
+      if (otherVoices.length > 0) {
+        const otherGroup = document.createElement('optgroup');
+        otherGroup.label = 'Other Voices';
+        otherVoices.forEach(voice => {
+          const option = document.createElement('option');
+          option.value = voice.name;
+          option.textContent = `${voice.name} (${voice.lang})${voice.localService ? ' - Local' : ''}`;
+          otherGroup.appendChild(option);
+        });
+        this.voiceSelect.appendChild(otherGroup);
+      }
+
+      // Load saved voice preference
+      const savedVoice = localStorage.getItem(this.VOICE_STORAGE);
+      if (savedVoice) {
+        this.voiceSelect.value = savedVoice;
+      }
+    };
+
+    // Try to load immediately
+    populateVoiceList();
+
+    // Also listen for voiceschanged event
+    window.speechSynthesis.onvoiceschanged = populateVoiceList;
+
+    // Fallback: Try loading after delays
+    setTimeout(populateVoiceList, 100);
+    setTimeout(populateVoiceList, 500);
   }
 
   private setupEventListeners(): void {
@@ -283,8 +358,10 @@ class KuchiApp {
   private openSettings(): void {
     const apiKey = localStorage.getItem(this.API_KEY_STORAGE);
     const serpApiKey = localStorage.getItem(this.SERP_API_KEY_STORAGE);
+    const selectedVoice = localStorage.getItem(this.VOICE_STORAGE);
     this.apiKeyInput.value = apiKey || '';
     this.serpApiKeyInput.value = serpApiKey || '';
+    this.voiceSelect.value = selectedVoice || '';
     this.settingsModal.classList.remove('hidden');
     this.apiKeyInput.focus();
   }
@@ -296,6 +373,7 @@ class KuchiApp {
   private saveSettings(): void {
     const apiKey = this.apiKeyInput.value.trim();
     const serpApiKey = this.serpApiKeyInput.value.trim();
+    const selectedVoice = this.voiceSelect.value;
 
     if (!apiKey) {
       alert('Please enter an OpenAI API key');
@@ -317,12 +395,16 @@ class KuchiApp {
 
     localStorage.setItem(this.API_KEY_STORAGE, apiKey);
     localStorage.setItem(this.SERP_API_KEY_STORAGE, serpApiKey);
+    localStorage.setItem(this.VOICE_STORAGE, selectedVoice);
+
+    // Update voice manager with selected voice
+    this.voiceManager.setPreferredVoice(selectedVoice);
 
     try {
       this.agent = new KuchiAgent(apiKey, serpApiKey);
       this.updateStatus('Ready! Tap to speak');
       this.robotFace.setExpression('happy');
-      
+
       setTimeout(() => {
         this.closeSettings();
         this.robotFace.setExpression('neutral');

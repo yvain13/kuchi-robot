@@ -23,6 +23,7 @@ export class VoiceManager {
   private isIOS: boolean;
   private voicesLoaded = false;
   private cachedVoices: SpeechSynthesisVoice[] = [];
+  private preferredVoiceName: string = '';
 
   constructor(callbacks: VoiceCallbacks = {}, continuous: boolean = false) {
     this.callbacks = callbacks;
@@ -280,6 +281,14 @@ export class VoiceManager {
   }
 
   /**
+   * Set preferred voice by name
+   */
+  setPreferredVoice(voiceName: string): void {
+    this.preferredVoiceName = voiceName;
+    console.log(`🔊 Preferred voice set to: ${voiceName || 'Auto'}`);
+  }
+
+  /**
    * Select the best available voice
    */
   private selectVoice(): SpeechSynthesisVoice | null {
@@ -290,15 +299,24 @@ export class VoiceManager {
     }
 
     const availableVoices = this.cachedVoices;
-    
+
     if (availableVoices.length === 0) {
       console.warn('No voices available');
       return null;
     }
 
+    // If user has selected a specific voice, use it
+    if (this.preferredVoiceName) {
+      const userPreferred = availableVoices.find(v => v.name === this.preferredVoiceName);
+      if (userPreferred) {
+        console.log(`🔊 Using user-selected voice: ${userPreferred.name}`);
+        return userPreferred;
+      }
+    }
+
     // iOS preferred voices
     if (this.isIOS) {
-      const iosPreferred = availableVoices.find(v => 
+      const iosPreferred = availableVoices.find(v =>
         v.name.includes('Samantha') || // High quality iOS voice
         v.name.includes('Karen') ||
         v.name.includes('Daniel') ||
