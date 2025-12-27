@@ -98,6 +98,31 @@
             Choose your preferred voice for Kuchi
           </small>
         </div>
+        <div class="form-group">
+          <label for="userNameInput">Your Name</label>
+          <input
+            type="text"
+            id="userNameInput"
+            placeholder="Enter your name..."
+            autocomplete="name"
+            autocapitalize="words"
+          >
+          <small style="color: #888; font-size: 12px; margin-top: 4px; display: block;">
+            Kuchi will remember you and personalize conversations
+          </small>
+        </div>
+        <div class="form-group">
+          <label for="memoryNotesInput">Personal Notes & Preferences</label>
+          <textarea
+            id="memoryNotesInput"
+            placeholder="Add any personal notes, preferences, or context you'd like Kuchi to remember..."
+            rows="4"
+            style="resize: vertical; font-family: inherit; padding: 12px; border-radius: 8px; border: 2px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: white; width: 100%; box-sizing: border-box;"
+          ></textarea>
+          <small style="color: #888; font-size: 12px; margin-top: 4px; display: block;">
+            Examples: "I prefer brief responses", "I'm learning Python", "Call me by my nickname"
+          </small>
+        </div>
         <div class="modal-actions">
           <button id="saveBtn" class="btn-primary">Save</button>
           <button id="cancelBtn" class="btn-secondary">Cancel</button>

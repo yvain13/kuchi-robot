@@ -11,6 +11,7 @@ export interface Message {
 }
 
 export interface UserMemory {
+  version: string;
   user: {
     name: string;
     preferences: {
@@ -22,6 +23,7 @@ export interface UserMemory {
   };
   facts: string[];
   last_updated: string;
+  created: string;
 }
 
 export class KuchiAgent {
@@ -46,8 +48,17 @@ export class KuchiAgent {
    */
   private async initializeWithMemory(): Promise<void> {
     try {
-      const response = await fetch('/memory.json');
-      this.userMemory = await response.json();
+      // Try localStorage first
+      const localMemory = this.loadMemoryFromLocalStorage();
+      if (localMemory) {
+        this.userMemory = localMemory;
+        console.log('📝 Loaded memory from localStorage');
+      } else {
+        // Fall back to fetching memory.json
+        const response = await fetch('/memory.json');
+        this.userMemory = await response.json();
+        console.log('📝 Loaded memory from memory.json');
+      }
 
       // Build enhanced system message with memory context
       const memoryContext = this.buildMemoryContext();
@@ -280,13 +291,85 @@ export class KuchiAgent {
   }
 
   /**
-   * Update user memory
+   * Get current user memory
    */
-  async updateMemory(updates: Partial<UserMemory>): Promise<void> {
+  getMemory(): UserMemory | null {
+    return this.userMemory;
+  }
+
+  /**
+   * Update user name in memory
+   */
+  updateUserName(name: string): void {
     if (this.userMemory) {
-      this.userMemory = { ...this.userMemory, ...updates };
-      // In a real app, you'd save this back to a server
-      console.log('Memory updated:', this.userMemory);
+      this.userMemory.user.name = name;
+      this.userMemory.last_updated = new Date().toISOString().split('T')[0];
+      this.saveMemoryToLocalStorage();
+      console.log('✅ User name updated:', name);
+    }
+  }
+
+  /**
+   * Update user notes in memory
+   */
+  updateUserNotes(notesText: string): void {
+    if (this.userMemory) {
+      // Convert textarea string into array of notes (split by newlines)
+      const notes = notesText
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      this.userMemory.user.notes = notes;
+      this.userMemory.last_updated = new Date().toISOString().split('T')[0];
+      this.saveMemoryToLocalStorage();
+      console.log('✅ User notes updated');
+    }
+  }
+
+  /**
+   * Save memory to localStorage (since we're client-side only)
+   */
+  private saveMemoryToLocalStorage(): void {
+    if (this.userMemory) {
+      localStorage.setItem('kuchi_memory', JSON.stringify(this.userMemory, null, 2));
+      console.log('💾 Memory saved to localStorage');
+    }
+  }
+
+  /**
+   * Load memory from localStorage (fallback if fetch fails)
+   */
+  private loadMemoryFromLocalStorage(): UserMemory | null {
+    try {
+      const saved = localStorage.getItem('kuchi_memory');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Failed to load memory from localStorage:', error);
+    }
+    return null;
+  }
+
+  /**
+   * Reinitialize system prompt with updated memory context
+   */
+  refreshSystemPrompt(): void {
+    if (this.conversationHistory.length > 0) {
+      const memoryContext = this.buildMemoryContext();
+
+      // Update the system message (first message)
+      this.conversationHistory[0] = {
+        role: 'system',
+        content:
+          'You are Kuchi, a friendly robot assistant with expressive animated faces. ' +
+          'Keep responses conversational, warm, and concise since they will be spoken aloud. ' +
+          'Use simple language and be helpful. When you need current information, use web search.\n\n' +
+          memoryContext,
+      };
+
+      console.log('🔄 System prompt refreshed with updated memory');
     }
   }
 }

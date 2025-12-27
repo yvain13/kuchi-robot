@@ -52,6 +52,10 @@ export class RobotFace {
   private blinkInterval: number | null = null;
   private isBlinking = false;
   private isSpeaking = false;
+  private inactivityTimer: number | null = null;
+  private lastActivityTime: number = Date.now();
+  private isSleeping = false;
+  private sleepTimeout: number = 120000; // 2 minutes in milliseconds
 
   constructor(containerId: string) {
     const element = document.getElementById(containerId);
@@ -63,6 +67,7 @@ export class RobotFace {
     this.setExpression('neutral');
     this.startBlinking();
     this.startIdleAnimations();
+    this.startInactivityMonitor();
   }
 
   private createRobot(): void {
@@ -214,23 +219,35 @@ export class RobotFace {
   private scheduleNextBlink: () => void = () => {};
 
   /**
-   * Subtle idle animations
+   * Subtle idle animations with more variety
    */
   private startIdleAnimations(): void {
     // Occasional look around when idle
     const idleLook = () => {
+      if (this.isSleeping) return; // Don't animate while sleeping
+
       if (this.currentExpression === 'neutral' || this.currentExpression === 'idle') {
-        const directions: Expression[] = ['lookLeft', 'lookRight', 'lookUp', 'lookDown', 'neutral'];
-        const randomDir = directions[Math.floor(Math.random() * directions.length)];
-        
-        // Brief look
-        this.setExpression(randomDir);
-        
+        // More varied idle behaviors
+        const behaviors = [
+          { expr: 'lookLeft' as Expression, duration: 800 },
+          { expr: 'lookRight' as Expression, duration: 800 },
+          { expr: 'lookUp' as Expression, duration: 1000 },
+          { expr: 'lookDown' as Expression, duration: 700 },
+          { expr: 'blink' as Expression, duration: 150 },
+          { expr: 'squint' as Expression, duration: 600 },
+          { expr: 'neutral' as Expression, duration: 500 }
+        ];
+
+        const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
+
+        // Brief expression
+        this.setExpression(randomBehavior.expr);
+
         setTimeout(() => {
-          if (['lookLeft', 'lookRight', 'lookUp', 'lookDown'].includes(this.currentExpression)) {
+          if (!this.isSleeping && this.currentExpression === randomBehavior.expr) {
             this.setExpression('neutral');
           }
-        }, 800 + Math.random() * 500);
+        }, randomBehavior.duration + Math.random() * 500);
       }
     };
 
@@ -240,6 +257,84 @@ export class RobotFace {
         idleLook();
       }
     }, 5000);
+  }
+
+  /**
+   * Monitor inactivity and trigger sleep state
+   */
+  private startInactivityMonitor(): void {
+    const checkInactivity = () => {
+      const now = Date.now();
+      const timeSinceActivity = now - this.lastActivityTime;
+
+      if (timeSinceActivity >= this.sleepTimeout && !this.isSleeping && !this.isSpeaking) {
+        this.enterSleepMode();
+      }
+    };
+
+    // Check every 10 seconds
+    this.inactivityTimer = window.setInterval(checkInactivity, 10000);
+  }
+
+  /**
+   * Enter sleep mode with sleepy expression and zzz animation
+   */
+  private enterSleepMode(): void {
+    this.isSleeping = true;
+    this.setExpression('sleepy');
+
+    // Add zzz animation to the face
+    const screen = this.container.querySelector('.screen') as HTMLElement;
+    if (screen && !screen.querySelector('.sleeping-zzz')) {
+      const zzzContainer = document.createElement('div');
+      zzzContainer.className = 'sleeping-zzz';
+      zzzContainer.innerHTML = `
+        <span class="zzz z1">z</span>
+        <span class="zzz z2">z</span>
+        <span class="zzz z3">z</span>
+      `;
+      screen.appendChild(zzzContainer);
+    }
+
+    console.log('💤 Kuchi is sleeping...');
+  }
+
+  /**
+   * Wake up from sleep mode
+   */
+  wakeUp(): void {
+    if (!this.isSleeping) return;
+
+    this.isSleeping = false;
+    this.lastActivityTime = Date.now();
+
+    // Remove zzz animation
+    const zzzContainer = this.container.querySelector('.sleeping-zzz');
+    if (zzzContainer) {
+      zzzContainer.remove();
+    }
+
+    // Show surprised expression briefly when woken up
+    this.setExpression('surprised');
+    setTimeout(() => {
+      if (!this.isSpeaking) {
+        this.setExpression('neutral');
+      }
+    }, 1000);
+
+    console.log('👀 Kuchi woke up!');
+  }
+
+  /**
+   * Reset activity timer (call this on any user interaction)
+   */
+  resetActivity(): void {
+    const wasSleeping = this.isSleeping;
+    this.lastActivityTime = Date.now();
+
+    if (wasSleeping) {
+      this.wakeUp();
+    }
   }
 
   /**
@@ -307,6 +402,9 @@ export class RobotFace {
   destroy(): void {
     if (this.blinkInterval) {
       clearTimeout(this.blinkInterval);
+    }
+    if (this.inactivityTimer) {
+      clearInterval(this.inactivityTimer);
     }
   }
 }

@@ -6,6 +6,7 @@
 import { RobotFace, Expression } from './robot';
 import { VoiceManager } from './voice';
 import { KuchiAgent } from './openai';
+import { DragManager } from './interactions';
 import './styles.css';
 
 type AppState = 
@@ -18,6 +19,7 @@ type AppState =
 class KuchiApp {
   private robotFace: RobotFace;
   private voiceManager: VoiceManager;
+  private dragManager: DragManager;
   private agent: KuchiAgent | null = null;
 
   // DOM Elements
@@ -28,6 +30,8 @@ class KuchiApp {
   private apiKeyInput: HTMLInputElement;
   private serpApiKeyInput: HTMLInputElement;
   private voiceSelect: HTMLSelectElement;
+  private userNameInput: HTMLInputElement;
+  private memoryNotesInput: HTMLTextAreaElement;
   private saveBtn: HTMLButtonElement;
   private cancelBtn: HTMLButtonElement;
 
@@ -52,6 +56,8 @@ class KuchiApp {
     this.apiKeyInput = document.getElementById('apiKeyInput') as HTMLInputElement;
     this.serpApiKeyInput = document.getElementById('serpApiKeyInput') as HTMLInputElement;
     this.voiceSelect = document.getElementById('voiceSelect') as HTMLSelectElement;
+    this.userNameInput = document.getElementById('userNameInput') as HTMLInputElement;
+    this.memoryNotesInput = document.getElementById('memoryNotesInput') as HTMLTextAreaElement;
     this.saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
     this.cancelBtn = document.getElementById('cancelBtn') as HTMLButtonElement;
 
@@ -67,6 +73,15 @@ class KuchiApp {
       },
       false
     );
+
+    // Initialize drag manager with interaction callbacks
+    // Target 'robotFace' container instead of 'kuchiBot' for proper dragging
+    this.dragManager = new DragManager('robotFace', {
+      onDragStart: () => this.handleDragStart(),
+      onDragMove: (velocity) => this.handleDragMove(velocity),
+      onDragEnd: () => this.handleDragEnd(),
+      onZoneTap: (zone) => this.handleZoneTap(zone),
+    });
 
     // Load saved voice preference
     const savedVoice = localStorage.getItem(this.VOICE_STORAGE);
@@ -359,9 +374,20 @@ class KuchiApp {
     const apiKey = localStorage.getItem(this.API_KEY_STORAGE);
     const serpApiKey = localStorage.getItem(this.SERP_API_KEY_STORAGE);
     const selectedVoice = localStorage.getItem(this.VOICE_STORAGE);
+
     this.apiKeyInput.value = apiKey || '';
     this.serpApiKeyInput.value = serpApiKey || '';
     this.voiceSelect.value = selectedVoice || '';
+
+    // Load memory data if agent exists
+    if (this.agent) {
+      const memory = this.agent.getMemory();
+      if (memory) {
+        this.userNameInput.value = memory.user.name || '';
+        this.memoryNotesInput.value = memory.user.notes.join('\n');
+      }
+    }
+
     this.settingsModal.classList.remove('hidden');
     this.apiKeyInput.focus();
   }
@@ -370,10 +396,123 @@ class KuchiApp {
     this.settingsModal.classList.add('hidden');
   }
 
+  /**
+   * Handle drag start - reset activity timer and disable dragging during interactions
+   */
+  private handleDragStart(): void {
+    // Reset activity (wake up if sleeping)
+    this.robotFace.resetActivity();
+
+    // Disable dragging during listening/speaking
+    if (this.appState === 'listening' || this.appState === 'speaking' || this.appState === 'processing') {
+      this.dragManager.setEnabled(false);
+      return;
+    }
+  }
+
+  /**
+   * Handle drag move - detect velocity and trigger emotional responses
+   */
+  private handleDragMove(velocity: number): void {
+    // Reset activity timer
+    this.robotFace.resetActivity();
+
+    // Only react to velocity when idle
+    if (this.appState !== 'idle') return;
+
+    // Velocity thresholds (pixels per millisecond)
+    const ANNOYED_THRESHOLD = 2.0;
+    const FURIOUS_THRESHOLD = 4.0;
+
+    if (velocity > FURIOUS_THRESHOLD) {
+      if (this.robotFace.getCurrentExpression() !== 'furious') {
+        this.robotFace.setExpression('furious');
+        this.updateStatus('Whoa! Too fast!');
+      }
+    } else if (velocity > ANNOYED_THRESHOLD) {
+      if (this.robotFace.getCurrentExpression() !== 'annoyed') {
+        this.robotFace.setExpression('annoyed');
+        this.updateStatus('Hey, careful!');
+      }
+    }
+  }
+
+  /**
+   * Handle drag end - return to neutral after dragging
+   */
+  private handleDragEnd(): void {
+    // Re-enable dragging
+    this.dragManager.setEnabled(true);
+
+    // Return to neutral after a brief delay
+    setTimeout(() => {
+      if (this.appState === 'idle' &&
+          (this.robotFace.getCurrentExpression() === 'annoyed' ||
+           this.robotFace.getCurrentExpression() === 'furious')) {
+        this.robotFace.setExpression('neutral');
+        this.updateStatus('Tap to speak');
+      }
+    }, 1500);
+  }
+
+  /**
+   * Handle zone tap - different reactions based on where user tapped
+   */
+  private handleZoneTap(zone: string): void {
+    console.log('👆 Tapped zone:', zone);
+
+    // Reset activity
+    this.robotFace.resetActivity();
+
+    // Only react to taps when idle
+    if (this.appState !== 'idle') return;
+
+    switch (zone) {
+      case 'head':
+        // Head tap makes Kuchi happy
+        this.robotFace.setExpression('happy');
+        this.updateStatus('Hehe! That tickles!');
+        setTimeout(() => {
+          if (this.appState === 'idle') {
+            this.robotFace.setExpression('neutral');
+            this.updateStatus('Tap to speak');
+          }
+        }, 2000);
+        break;
+
+      case 'body':
+        // Body tap makes Kuchi curious
+        this.robotFace.setExpression('surprised');
+        this.updateStatus('What was that?');
+        setTimeout(() => {
+          if (this.appState === 'idle') {
+            this.robotFace.setExpression('neutral');
+            this.updateStatus('Tap to speak');
+          }
+        }, 1500);
+        break;
+
+      case 'arm-left':
+      case 'arm-right':
+        // Arm tap makes Kuchi wave
+        this.robotFace.setExpression('glee');
+        this.updateStatus('Hello there!');
+        setTimeout(() => {
+          if (this.appState === 'idle') {
+            this.robotFace.setExpression('neutral');
+            this.updateStatus('Tap to speak');
+          }
+        }, 1500);
+        break;
+    }
+  }
+
   private saveSettings(): void {
     const apiKey = this.apiKeyInput.value.trim();
     const serpApiKey = this.serpApiKeyInput.value.trim();
     const selectedVoice = this.voiceSelect.value;
+    const userName = this.userNameInput.value.trim();
+    const memoryNotes = this.memoryNotesInput.value.trim();
 
     if (!apiKey) {
       alert('Please enter an OpenAI API key');
@@ -401,14 +540,35 @@ class KuchiApp {
     this.voiceManager.setPreferredVoice(selectedVoice);
 
     try {
-      this.agent = new KuchiAgent(apiKey, serpApiKey);
-      this.updateStatus('Ready! Tap to speak');
-      this.robotFace.setExpression('happy');
+      // Create or update agent
+      const wasExisting = this.agent !== null;
+      if (!wasExisting) {
+        this.agent = new KuchiAgent(apiKey, serpApiKey);
+      }
 
+      // Wait a moment for agent to initialize, then update memory
       setTimeout(() => {
-        this.closeSettings();
-        this.robotFace.setExpression('neutral');
-      }, 1000);
+        if (this.agent) {
+          // Update memory with user inputs
+          if (userName) {
+            this.agent.updateUserName(userName);
+          }
+          if (memoryNotes) {
+            this.agent.updateUserNotes(memoryNotes);
+          }
+
+          // Refresh the system prompt with new memory
+          this.agent.refreshSystemPrompt();
+        }
+
+        this.updateStatus('Settings saved! Tap to speak');
+        this.robotFace.setExpression('happy');
+
+        setTimeout(() => {
+          this.closeSettings();
+          this.robotFace.setExpression('neutral');
+        }, 1000);
+      }, wasExisting ? 0 : 500);
 
     } catch (error) {
       alert('Failed to initialize. Check your API keys.');
