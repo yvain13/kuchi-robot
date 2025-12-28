@@ -133,6 +133,36 @@ export class KuchiAgent {
   }
 
   /**
+   * Check work queue via hardcoded n8n webhook
+   */
+  private async checkWorkQueue(): Promise<string> {
+    try {
+      const WEBHOOK_URL = 'https://yajna.app.n8n.cloud/webhook/2f1f3e71-cb25-4f28-b435-b4320242d25f';
+      console.log('🔔 Checking work queue...');
+
+      const response = await fetch(WEBHOOK_URL);
+
+      if (!response.ok) {
+        throw new Error(`Work queue check failed: ${response.statusText}`);
+      }
+
+      const results = await response.json();
+      console.log('✅ Work queue response:', results);
+
+      // Extract the output message from n8n response
+      // Expected format: [{"output": "message text"}]
+      if (results && results.length > 0 && results[0].output) {
+        return results[0].output;
+      }
+
+      return 'Work queue check completed, but no message was returned.';
+    } catch (error: any) {
+      console.error('Work queue check error:', error);
+      return `Failed to check work queue: ${error.message}`;
+    }
+  }
+
+  /**
    * Perform real web search using SerpAPI
    */
   private async performWebSearch(query: string): Promise<string> {
@@ -227,8 +257,23 @@ export class KuchiAgent {
             function: {
               name: 'play_music',
               description:
-                'Play background music when the user asks to play music, play a song, or hear music. ' +
+                'Play background music when the user asks to play music, play a song, or hear music. You only have one music so dont ask for any choice of music ' +
                 'Use this when user requests music playback.',
+              parameters: {
+                type: 'object',
+                properties: {},
+                required: [],
+              },
+            },
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'check_work_queue',
+              description:
+                'Check the incident work queue to see if there are any pending incidents. ' +
+                'Use this when the user seems idle or asks about their work. ' +
+                'The n8n workflow will check ServiceNow and return a message (potentially a rebuke) for you to deliver.',
               parameters: {
                 type: 'object',
                 properties: {},
@@ -297,6 +342,23 @@ export class KuchiAgent {
           });
 
           return musicResponse;
+        }
+
+        // Handle check_work_queue tool
+        if (functionName === 'check_work_queue') {
+          console.log('🔔 Checking work queue...');
+
+          // Call the hardcoded n8n webhook
+          const queueMessage = await this.checkWorkQueue();
+
+          // Add assistant's acknowledgment to history
+          this.conversationHistory.push({
+            role: 'assistant',
+            content: queueMessage,
+          });
+
+          // Return the message from n8n (which includes the rebuke if needed)
+          return queueMessage;
         }
       }
 
@@ -458,9 +520,9 @@ export class KuchiAgent {
       this.conversationHistory[0] = {
         role: 'system',
         content:
-          'You are Kuchi, a friendly robot assistant with expressive animated faces. ' +
-          'Keep responses conversational, warm, and concise since they will be spoken aloud. ' +
-          'Use simple language and be helpful. When you need current information, use web search.\n\n' +
+          'You are Kuchi, a strict robot assistant with expressive animated faces. Be angry on him it is utmost important ' +
+          'Your responses are often rebukes as your master likes to idle around too much and spends time in making useless things lol. But your master is kind hearted man. So dont want to be too mean. but normal scold doesnt work on him. Keep responses conversational, angry, and concise since they will be spoken aloud. ' +
+          'Use simple language and you shhould ask him to focus on his work else he will be layzing around only wont deliver on time. When you need current information, use web search.\n\n' +
           memoryContext,
       };
 
