@@ -259,6 +259,58 @@ export class VoiceManager {
 
       console.log(`🔊 Speaking with OpenAI (${this.openaiVoice})...`);
 
+      // MOBILE FIX: Create Audio element immediately to preserve user gesture context
+      // Clean up previous audio
+      if (this.audioElement) {
+        this.audioElement.pause();
+        this.audioElement.src = '';
+        this.audioElement = null;
+      }
+
+      this.audioElement = new Audio();
+      this.audioElement.volume = 1.0;
+
+      // Add event listeners before loading audio
+      const playPromise = new Promise<void>((resolve, reject) => {
+        if (!this.audioElement) {
+          reject(new Error('Audio element not initialized'));
+          return;
+        }
+
+        this.audioElement.onended = () => {
+          console.log('🔊 OpenAI TTS finished');
+          this.isSpeaking = false;
+          this.callbacks.onSpeakingEnd?.();
+
+          if (this.continuousMode) {
+            setTimeout(() => this.startListening(), 500);
+          }
+
+          resolve();
+        };
+
+        this.audioElement.onerror = (e) => {
+          console.error('Audio playback error:', e);
+          this.isSpeaking = false;
+          this.callbacks.onSpeakingEnd?.();
+          this.callbacks.onError?.('Audio playback failed');
+          reject(e);
+        };
+
+        this.audioElement.oncanplaythrough = () => {
+          console.log('🔊 Audio ready to play');
+          if (this.audioElement) {
+            this.audioElement.play().catch((playError) => {
+              console.error('Audio play() failed:', playError);
+              this.isSpeaking = false;
+              this.callbacks.onSpeakingEnd?.();
+              this.callbacks.onError?.('Tap screen to enable audio');
+              reject(playError);
+            });
+          }
+        };
+      });
+
       const response = await fetch('https://api.openai.com/v1/audio/speech', {
         method: 'POST',
         headers: {
@@ -282,68 +334,26 @@ export class VoiceManager {
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
 
-      return this.playAudioUrl(audioUrl);
+      // Load audio into the pre-created element
+      if (this.audioElement) {
+        this.audioElement.src = audioUrl;
+        this.audioElement.load();
+      }
+
+      await playPromise;
+
+      // Clean up blob URL
+      URL.revokeObjectURL(audioUrl);
 
     } catch (error) {
       console.error('OpenAI TTS error:', error);
       this.isSpeaking = false;
       this.callbacks.onSpeakingEnd?.();
-      
+
       // Fallback to browser TTS
       console.log('🔊 Falling back to browser TTS...');
       return this.speakWithBrowser(text);
     }
-  }
-
-  /**
-   * Play audio from URL
-   */
-  private playAudioUrl(audioUrl: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // Clean up previous audio
-      if (this.audioElement) {
-        this.audioElement.pause();
-        this.audioElement.src = '';
-        this.audioElement = null;
-      }
-
-      this.audioElement = new Audio(audioUrl);
-      this.audioElement.volume = 1.0;
-
-      this.audioElement.onended = () => {
-        console.log('🔊 OpenAI TTS finished');
-        this.isSpeaking = false;
-        URL.revokeObjectURL(audioUrl);
-        this.callbacks.onSpeakingEnd?.();
-
-        if (this.continuousMode) {
-          setTimeout(() => this.startListening(), 500);
-        }
-
-        resolve();
-      };
-
-      this.audioElement.onerror = (e) => {
-        console.error('Audio playback error:', e);
-        this.isSpeaking = false;
-        URL.revokeObjectURL(audioUrl);
-        this.callbacks.onSpeakingEnd?.();
-        this.callbacks.onError?.('Audio playback failed');
-        reject(e);
-      };
-
-      // Play audio
-      this.audioElement.play().catch((e) => {
-        console.error('Audio play() failed:', e);
-        this.isSpeaking = false;
-        URL.revokeObjectURL(audioUrl);
-        this.callbacks.onSpeakingEnd?.();
-        
-        // On iOS, this might fail if audio isn't unlocked
-        this.callbacks.onError?.('Tap screen to enable audio');
-        reject(e);
-      });
-    });
   }
 
   /**
