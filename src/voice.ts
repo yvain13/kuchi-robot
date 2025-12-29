@@ -69,24 +69,9 @@ export class VoiceManager {
   private initializeAudioElement(): void {
     this.audioElement = new Audio();
     this.audioElement.volume = 1.0;
-    
-    // Preload silent audio to warm up the element
-    this.audioElement.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
-    
-    this.audioElement.onended = () => {
-      console.log('🔊 Audio playback ended');
-      this.isSpeaking = false;
-      this.callbacks.onSpeakingEnd?.();
-      
-      if (this.continuousMode) {
-        setTimeout(() => this.startListening(), 500);
-      }
-    };
-    
-    this.audioElement.onerror = (e) => {
-      console.error('🔊 Audio error:', e);
-      // Don't set error callback here as it might fire for the silent init
-    };
+
+    // Don't preload anything - just create the element
+    // Event listeners will be added when actually playing audio
   }
 
   // ==================== OpenAI TTS Configuration ====================
@@ -319,72 +304,78 @@ export class VoiceManager {
       }
 
       const audioBlob = await response.blob();
+      console.log(`🔊 Received audio blob: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
+
       const audioUrl = URL.createObjectURL(audioBlob);
 
-      console.log('🔊 Playing OpenAI TTS audio...');
-
       return new Promise<void>((resolve, reject) => {
-        if (!this.audioElement) {
-          this.audioElement = new Audio();
-        }
+        // Create a fresh audio element each time to avoid state issues
+        const audio = new Audio();
+        audio.volume = 1.0;
 
-        // Store URL for cleanup
+        // Store reference for cleanup
+        this.audioElement = audio;
         this.pendingAudioUrl = audioUrl;
 
-        const onEnded = () => {
-          console.log('🔊 OpenAI TTS finished');
-          cleanup();
-          this.isSpeaking = false;
-          this.callbacks.onSpeakingEnd?.();
-          
-          if (this.continuousMode) {
-            setTimeout(() => this.startListening(), 500);
-          }
-          resolve();
-        };
-
-        const onError = (e: Event) => {
-          console.error('🔊 Audio playback error:', e);
-          cleanup();
-          this.isSpeaking = false;
-          this.callbacks.onSpeakingEnd?.();
-          
-          // Fallback to browser TTS
-          console.log('🔊 Falling back to browser TTS...');
-          this.speakWithBrowser(text).then(resolve).catch(reject);
-        };
-
         const cleanup = () => {
-          if (this.audioElement) {
-            this.audioElement.removeEventListener('ended', onEnded);
-            this.audioElement.removeEventListener('error', onError);
-          }
+          audio.removeEventListener('ended', onEnded);
+          audio.removeEventListener('error', onError);
+          audio.removeEventListener('loadeddata', onLoadedData);
           if (this.pendingAudioUrl) {
             URL.revokeObjectURL(this.pendingAudioUrl);
             this.pendingAudioUrl = null;
           }
         };
 
-        this.audioElement.addEventListener('ended', onEnded, { once: true });
-        this.audioElement.addEventListener('error', onError, { once: true });
+        const onEnded = () => {
+          console.log('🔊 OpenAI TTS finished playing');
+          cleanup();
+          this.isSpeaking = false;
+          this.callbacks.onSpeakingEnd?.();
 
-        this.audioElement.src = audioUrl;
-        this.audioElement.load();
-        
-        // Play with promise handling
-        const playPromise = this.audioElement.play();
-        
-        if (playPromise !== undefined) {
-          playPromise.catch((error) => {
-            console.error('🔊 Play failed:', error);
-            cleanup();
-            this.isSpeaking = false;
-            this.callbacks.onSpeakingEnd?.();
-            
-            // Fallback to browser TTS
-            this.speakWithBrowser(text).then(resolve).catch(reject);
-          });
-        }
+          if (this.continuousMode) {
+            setTimeout(() => this.startListening(), 500);
+          }
+          resolve();
+        };
+
+        const onError = (e: Event | string) => {
+          console.error('🔊 Audio playback error:', e);
+          cleanup();
+          this.isSpeaking = false;
+          this.callbacks.onSpeakingEnd?.();
+
+          // Fallback to browser TTS
+          console.log('🔊 Falling back to browser TTS...');
+          this.speakWithBrowser(text).then(resolve).catch(reject);
+        };
+
+        const onLoadedData = () => {
+          console.log(`🔊 Audio loaded - duration: ${audio.duration}s`);
+
+          // Only play if we have valid audio
+          if (audio.duration && audio.duration > 0) {
+            console.log('🔊 Starting playback...');
+            const playPromise = audio.play();
+
+            if (playPromise !== undefined) {
+              playPromise.catch((error) => {
+                console.error('🔊 Play failed:', error);
+                onError(error);
+              });
+            }
+          } else {
+            console.error('🔊 Invalid audio duration');
+            onError('Invalid audio duration');
+          }
+        };
+
+        audio.addEventListener('ended', onEnded);
+        audio.addEventListener('error', onError);
+        audio.addEventListener('loadeddata', onLoadedData);
+
+        audio.src = audioUrl;
+        audio.load();
       });
 
     } catch (error) {
