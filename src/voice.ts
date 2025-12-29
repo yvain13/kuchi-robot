@@ -309,12 +309,16 @@ export class VoiceManager {
       const audioUrl = URL.createObjectURL(audioBlob);
 
       return new Promise<void>((resolve, reject) => {
-        // Create a fresh audio element each time to avoid state issues
-        const audio = new Audio();
+        // CRITICAL: Reuse the unlocked audio element for mobile compatibility
+        // Creating a new Audio() would lose the user gesture permission on mobile
+        if (!this.audioElement) {
+          this.audioElement = new Audio();
+        }
+
+        const audio = this.audioElement;
         audio.volume = 1.0;
 
-        // Store reference for cleanup
-        this.audioElement = audio;
+        // Store URL for cleanup
         this.pendingAudioUrl = audioUrl;
 
         const cleanup = () => {
