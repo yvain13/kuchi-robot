@@ -1,7 +1,7 @@
 /**
- * Voice Manager using Web Speech API
+ * Voice Manager using Web Speech API + OpenAI TTS
  * Handles speech recognition (STT) and synthesis (TTS)
- * Fixed for iOS Safari compatibility
+ * Uses OpenAI TTS for high-quality voice output on all devices
  */
 
 export interface VoiceCallbacks {
@@ -12,6 +12,9 @@ export interface VoiceCallbacks {
   onSpeakingEnd?: () => void;
   onError?: (error: string) => void;
 }
+
+export type OpenAIVoice = 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
+export type TTSProvider = 'openai' | 'browser';
 
 export class VoiceManager {
   private recognition: SpeechRecognition | null = null;
@@ -24,6 +27,13 @@ export class VoiceManager {
   private voicesLoaded = false;
   private cachedVoices: SpeechSynthesisVoice[] = [];
   private preferredVoiceName: string = '';
+  
+  // OpenAI TTS Configuration
+  private ttsProvider: TTSProvider = 'browser';
+  private openaiApiKey: string = '';
+  private openaiVoice: OpenAIVoice = 'alloy';
+  private openaiSpeed: number = 1.0;
+  private audioElement: HTMLAudioElement | null = null;
 
   constructor(callbacks: VoiceCallbacks = {}, continuous: boolean = false) {
     this.callbacks = callbacks;
@@ -43,6 +53,54 @@ export class VoiceManager {
     }
   }
 
+  // ==================== OpenAI TTS Configuration ====================
+
+  /**
+   * Enable OpenAI TTS with your API key
+   * @param apiKey - Your OpenAI API key
+   * @param voice - Voice to use: 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'
+   * @param speed - Speech speed (0.25 to 4.0, default 1.0)
+   */
+  enableOpenAITTS(apiKey: string, voice: OpenAIVoice = 'alloy', speed: number = 1.0): void {
+    this.ttsProvider = 'openai';
+    this.openaiApiKey = apiKey;
+    this.openaiVoice = voice;
+    this.openaiSpeed = Math.max(0.25, Math.min(4.0, speed));
+    console.log(`🔊 OpenAI TTS enabled - Voice: ${voice}, Speed: ${this.openaiSpeed}`);
+  }
+
+  /**
+   * Switch to browser's built-in TTS
+   */
+  useBrowserTTS(): void {
+    this.ttsProvider = 'browser';
+    console.log('🔊 Switched to browser TTS');
+  }
+
+  /**
+   * Set OpenAI voice
+   */
+  setOpenAIVoice(voice: OpenAIVoice): void {
+    this.openaiVoice = voice;
+    console.log(`🔊 OpenAI voice set to: ${voice}`);
+  }
+
+  /**
+   * Set OpenAI speech speed
+   */
+  setOpenAISpeed(speed: number): void {
+    this.openaiSpeed = Math.max(0.25, Math.min(4.0, speed));
+  }
+
+  /**
+   * Get current TTS provider
+   */
+  getTTSProvider(): TTSProvider {
+    return this.ttsProvider;
+  }
+
+  // ==================== Voice Preloading ====================
+
   /**
    * Preload voices - required for iOS
    */
@@ -51,7 +109,7 @@ export class VoiceManager {
       this.cachedVoices = this.synthesis.getVoices();
       if (this.cachedVoices.length > 0) {
         this.voicesLoaded = true;
-        console.log(`🔊 Loaded ${this.cachedVoices.length} voices`);
+        console.log(`🔊 Loaded ${this.cachedVoices.length} browser voices`);
       }
     };
 
@@ -71,18 +129,18 @@ export class VoiceManager {
 
   /**
    * iOS fix: Keep speech synthesis "warm" by periodically using it
-   * This prevents iOS from putting the speech engine to sleep
    */
   private keepSynthesisAlive(): void {
     setInterval(() => {
-      if (!this.isSpeaking) {
-        // Speak empty/silent utterance to keep engine alive
+      if (!this.isSpeaking && this.ttsProvider === 'browser') {
         const utterance = new SpeechSynthesisUtterance('');
         utterance.volume = 0;
         this.synthesis.speak(utterance);
       }
-    }, 10000); // Every 10 seconds
+    }, 10000);
   }
+
+  // ==================== Speech Recognition ====================
 
   private initializeRecognition(): void {
     const SpeechRecognition =
@@ -166,40 +224,149 @@ export class VoiceManager {
     }
   }
 
+  // ==================== Text-to-Speech ====================
+
   /**
-   * Speak text using TTS - iOS optimized
+   * Main speak function - routes to OpenAI or Browser TTS
    */
   speak(text: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // Clean text
-      const cleanText = this.cleanTextForSpeech(text);
-      
-      if (!cleanText) {
-        resolve();
-        return;
+    const cleanText = this.cleanTextForSpeech(text);
+    
+    if (!cleanText) {
+      return Promise.resolve();
+    }
+
+    // Stop any current speech
+    this.stopSpeaking();
+
+    if (this.ttsProvider === 'openai' && this.openaiApiKey) {
+      return this.speakWithOpenAI(cleanText);
+    } else {
+      return this.speakWithBrowser(cleanText);
+    }
+  }
+
+  /**
+   * Speak using OpenAI TTS API
+   */
+  private async speakWithOpenAI(text: string): Promise<void> {
+    try {
+      this.isSpeaking = true;
+      if (this.isListening) {
+        this.stopListening();
+      }
+      this.callbacks.onSpeakingStart?.();
+
+      console.log(`🔊 Speaking with OpenAI (${this.openaiVoice})...`);
+
+      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'tts-1',
+          voice: this.openaiVoice,
+          input: text,
+          speed: this.openaiSpeed,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenAI TTS error:', errorText);
+        throw new Error(`OpenAI TTS failed: ${response.status}`);
       }
 
-      // iOS FIX: Cancel any existing speech first
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      return this.playAudioUrl(audioUrl);
+
+    } catch (error) {
+      console.error('OpenAI TTS error:', error);
+      this.isSpeaking = false;
+      this.callbacks.onSpeakingEnd?.();
+      
+      // Fallback to browser TTS
+      console.log('🔊 Falling back to browser TTS...');
+      return this.speakWithBrowser(text);
+    }
+  }
+
+  /**
+   * Play audio from URL
+   */
+  private playAudioUrl(audioUrl: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Clean up previous audio
+      if (this.audioElement) {
+        this.audioElement.pause();
+        this.audioElement.src = '';
+        this.audioElement = null;
+      }
+
+      this.audioElement = new Audio(audioUrl);
+      this.audioElement.volume = 1.0;
+
+      this.audioElement.onended = () => {
+        console.log('🔊 OpenAI TTS finished');
+        this.isSpeaking = false;
+        URL.revokeObjectURL(audioUrl);
+        this.callbacks.onSpeakingEnd?.();
+
+        if (this.continuousMode) {
+          setTimeout(() => this.startListening(), 500);
+        }
+
+        resolve();
+      };
+
+      this.audioElement.onerror = (e) => {
+        console.error('Audio playback error:', e);
+        this.isSpeaking = false;
+        URL.revokeObjectURL(audioUrl);
+        this.callbacks.onSpeakingEnd?.();
+        this.callbacks.onError?.('Audio playback failed');
+        reject(e);
+      };
+
+      // Play audio
+      this.audioElement.play().catch((e) => {
+        console.error('Audio play() failed:', e);
+        this.isSpeaking = false;
+        URL.revokeObjectURL(audioUrl);
+        this.callbacks.onSpeakingEnd?.();
+        
+        // On iOS, this might fail if audio isn't unlocked
+        this.callbacks.onError?.('Tap screen to enable audio');
+        reject(e);
+      });
+    });
+  }
+
+  /**
+   * Speak using Browser's built-in TTS (fallback)
+   */
+  private speakWithBrowser(text: string): Promise<void> {
+    return new Promise((resolve, reject) => {
       this.synthesis.cancel();
 
-      // iOS FIX: Small delay after cancel
       const startSpeech = () => {
-        // Create utterance
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = this.isIOS ? 0.9 : 0.95;  // Slightly slower on iOS
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = this.isIOS ? 0.9 : 0.95;
         utterance.pitch = 1.05;
         utterance.volume = 1.0;
         utterance.lang = 'en-US';
 
-        // Select voice
-        const voice = this.selectVoice();
+        const voice = this.selectBrowserVoice();
         if (voice) {
           utterance.voice = voice;
         }
 
-        // Event handlers
         utterance.onstart = () => {
-          console.log('🔊 Speaking started');
+          console.log('🔊 Browser TTS started');
           this.isSpeaking = true;
           if (this.isListening) {
             this.stopListening();
@@ -208,7 +375,7 @@ export class VoiceManager {
         };
 
         utterance.onend = () => {
-          console.log('🔊 Speaking ended');
+          console.log('🔊 Browser TTS ended');
           this.isSpeaking = false;
           this.callbacks.onSpeakingEnd?.();
 
@@ -220,10 +387,9 @@ export class VoiceManager {
         };
 
         utterance.onerror = (event) => {
-          console.error('🔊 Speech error:', event.error);
+          console.error('🔊 Browser TTS error:', event.error);
           this.isSpeaking = false;
 
-          // iOS often fires 'interrupted' - treat as success
           if (event.error === 'interrupted' || event.error === 'canceled') {
             this.callbacks.onSpeakingEnd?.();
             resolve();
@@ -234,35 +400,30 @@ export class VoiceManager {
           reject(event.error);
         };
 
-        // iOS FIX: Resume synthesis if paused
         if (this.synthesis.paused) {
           this.synthesis.resume();
         }
 
-        // Speak
         this.synthesis.speak(utterance);
 
-        // iOS FIX: Workaround for iOS 15+ bug where speech stops after ~15 seconds
-        // Periodically check and resume if paused
+        // iOS fix for speech stopping after ~15 seconds
         if (this.isIOS) {
           const checkInterval = setInterval(() => {
             if (!this.isSpeaking) {
               clearInterval(checkInterval);
               return;
             }
-            
             if (this.synthesis.paused) {
               console.log('🔊 Resuming paused speech (iOS fix)');
               this.synthesis.resume();
             }
           }, 250);
 
-          // Also set a timeout to resume
           const resumeTimeout = setTimeout(() => {
             if (this.synthesis.paused) {
               this.synthesis.resume();
             }
-          }, 14000); // Before iOS 15 second timeout
+          }, 14000);
 
           utterance.onend = () => {
             clearInterval(checkInterval);
@@ -274,25 +435,22 @@ export class VoiceManager {
         }
       };
 
-      // iOS requires user gesture to initiate speech
-      // Give a small delay after cancel to ensure clean state
       setTimeout(startSpeech, this.isIOS ? 100 : 50);
     });
   }
 
   /**
-   * Set preferred voice by name
+   * Set preferred browser voice by name
    */
   setPreferredVoice(voiceName: string): void {
     this.preferredVoiceName = voiceName;
-    console.log(`🔊 Preferred voice set to: ${voiceName || 'Auto'}`);
+    console.log(`🔊 Preferred browser voice set to: ${voiceName || 'Auto'}`);
   }
 
   /**
-   * Select the best available voice
+   * Select the best available browser voice
    */
-  private selectVoice(): SpeechSynthesisVoice | null {
-    // Refresh voices
+  private selectBrowserVoice(): SpeechSynthesisVoice | null {
     const voices = this.synthesis.getVoices();
     if (voices.length > 0) {
       this.cachedVoices = voices;
@@ -301,23 +459,17 @@ export class VoiceManager {
     const availableVoices = this.cachedVoices;
 
     if (availableVoices.length === 0) {
-      console.warn('No voices available');
       return null;
     }
 
-    // If user has selected a specific voice, use it
     if (this.preferredVoiceName) {
       const userPreferred = availableVoices.find(v => v.name === this.preferredVoiceName);
-      if (userPreferred) {
-        console.log(`🔊 Using user-selected voice: ${userPreferred.name}`);
-        return userPreferred;
-      }
+      if (userPreferred) return userPreferred;
     }
 
-    // iOS preferred voices
     if (this.isIOS) {
       const iosPreferred = availableVoices.find(v =>
-        v.name.includes('Samantha') || // High quality iOS voice
+        v.name.includes('Samantha') ||
         v.name.includes('Karen') ||
         v.name.includes('Daniel') ||
         (v.lang.startsWith('en') && v.localService)
@@ -325,7 +477,6 @@ export class VoiceManager {
       if (iosPreferred) return iosPreferred;
     }
 
-    // Desktop preferred voices
     const preferred = availableVoices.find(v =>
       v.name.includes('Google') ||
       v.name.includes('Natural') ||
@@ -336,11 +487,9 @@ export class VoiceManager {
     );
     if (preferred) return preferred;
 
-    // Fallback to any English voice
     const englishVoice = availableVoices.find(v => v.lang.startsWith('en'));
     if (englishVoice) return englishVoice;
 
-    // Last resort: first available voice
     return availableVoices[0];
   }
 
@@ -355,7 +504,7 @@ export class VoiceManager {
     // Remove URLs
     cleanText = cleanText.replace(/https?:\/\/\S+/g, '');
 
-    // Remove special characters that might cause issues
+    // Remove special characters
     cleanText = cleanText.replace(/[*#_~`]/g, '');
 
     // Remove multiple spaces and trim
@@ -365,10 +514,16 @@ export class VoiceManager {
   }
 
   stopSpeaking(): void {
-    if (this.isSpeaking) {
-      this.synthesis.cancel();
-      this.isSpeaking = false;
+    this.isSpeaking = false;
+
+    // Stop OpenAI audio
+    if (this.audioElement) {
+      this.audioElement.pause();
+      this.audioElement.currentTime = 0;
     }
+
+    // Stop browser TTS
+    this.synthesis.cancel();
   }
 
   setContinuousMode(enabled: boolean): void {
@@ -384,41 +539,56 @@ export class VoiceManager {
     return this.continuousMode;
   }
 
+  getIsSpeaking(): boolean {
+    return this.isSpeaking;
+  }
+
   static isSupported(): boolean {
     return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
   }
 
   /**
-   * iOS: Unlock audio by playing a silent sound
+   * iOS: Unlock audio by playing silent sounds
    * MUST be called from a user gesture (like button click)
    */
   unlockAudio(): void {
-    if (!this.isIOS) return;
+    console.log('🔊 Unlocking audio...');
 
-    console.log('🔊 Unlocking audio for iOS...');
-    
-    // Method 1: Speak empty string
-    const utterance = new SpeechSynthesisUtterance('');
-    utterance.volume = 0;
-    this.synthesis.speak(utterance);
+    // Method 1: Play silent Audio element (for OpenAI TTS)
+    try {
+      const silentAudio = new Audio();
+      silentAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+      silentAudio.volume = 0.01;
+      silentAudio.play().then(() => {
+        silentAudio.pause();
+        console.log('🔊 Audio element unlocked');
+      }).catch(() => {});
+    } catch (e) {}
 
-    // Method 2: Use AudioContext
+    // Method 2: Speak empty string (for Browser TTS)
+    try {
+      const utterance = new SpeechSynthesisUtterance('');
+      utterance.volume = 0;
+      this.synthesis.speak(utterance);
+    } catch (e) {}
+
+    // Method 3: Use AudioContext
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContext) {
         const ctx = new AudioContext();
         const oscillator = ctx.createOscillator();
         const gain = ctx.createGain();
-        gain.gain.value = 0; // Silent
+        gain.gain.value = 0;
         oscillator.connect(gain);
         gain.connect(ctx.destination);
         oscillator.start(0);
         oscillator.stop(0.001);
         
-        // Resume context if suspended
         if (ctx.state === 'suspended') {
           ctx.resume();
         }
+        console.log('🔊 AudioContext unlocked');
       }
     } catch (e) {
       console.warn('AudioContext unlock failed:', e);
@@ -429,6 +599,11 @@ export class VoiceManager {
     this.continuousMode = false;
     this.stopListening();
     this.stopSpeaking();
+    
+    if (this.audioElement) {
+      this.audioElement.src = '';
+      this.audioElement = null;
+    }
   }
 }
 

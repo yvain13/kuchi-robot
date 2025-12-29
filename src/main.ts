@@ -32,6 +32,8 @@ class KuchiApp {
   private apiKeyInput: HTMLInputElement;
   private serpApiKeyInput: HTMLInputElement;
   private voiceSelect: HTMLSelectElement;
+  private openaiVoiceSelect: HTMLSelectElement;
+  private ttsProviderSelect: HTMLSelectElement;
   private userNameInput: HTMLInputElement;
   private memoryNotesInput: HTMLTextAreaElement;
   private saveBtn: HTMLButtonElement;
@@ -43,6 +45,8 @@ class KuchiApp {
   private readonly API_KEY_STORAGE = 'kuchi_api_key';
   private readonly SERP_API_KEY_STORAGE = 'kuchi_serp_api_key';
   private readonly VOICE_STORAGE = 'kuchi_selected_voice';
+  private readonly OPENAI_VOICE_STORAGE = 'kuchi_openai_voice';
+  private readonly TTS_PROVIDER_STORAGE = 'kuchi_tts_provider';
 
   constructor() {
     console.log('🤖 Initializing Kuchi (Vector Style)...');
@@ -58,6 +62,8 @@ class KuchiApp {
     this.apiKeyInput = document.getElementById('apiKeyInput') as HTMLInputElement;
     this.serpApiKeyInput = document.getElementById('serpApiKeyInput') as HTMLInputElement;
     this.voiceSelect = document.getElementById('voiceSelect') as HTMLSelectElement;
+    this.openaiVoiceSelect = document.getElementById('openaiVoiceSelect') as HTMLSelectElement;
+    this.ttsProviderSelect = document.getElementById('ttsProviderSelect') as HTMLSelectElement;
     this.userNameInput = document.getElementById('userNameInput') as HTMLInputElement;
     this.memoryNotesInput = document.getElementById('memoryNotesInput') as HTMLTextAreaElement;
     this.saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
@@ -100,6 +106,9 @@ class KuchiApp {
       this.voiceManager.setPreferredVoice(savedVoice);
     }
 
+    // Load and configure TTS provider
+    this.configureTTSProvider();
+
     // Initialize agent
     this.initializeAgent();
     this.setupEventListeners();
@@ -108,6 +117,21 @@ class KuchiApp {
 
     this.micBtn.style.display = 'flex';
     console.log('✅ Kuchi initialized (Vector Style)');
+  }
+
+  private configureTTSProvider(): void {
+    const apiKey = localStorage.getItem(this.API_KEY_STORAGE);
+    const savedProvider = localStorage.getItem(this.TTS_PROVIDER_STORAGE) as 'openai' | 'browser' | null;
+    const savedOpenAIVoice = localStorage.getItem(this.OPENAI_VOICE_STORAGE) as any;
+
+    // Enable OpenAI TTS if API key exists and provider is set to OpenAI
+    if (apiKey && savedProvider === 'openai') {
+      this.voiceManager.enableOpenAITTS(apiKey, savedOpenAIVoice || 'alloy', 1.0);
+      console.log('🔊 OpenAI TTS enabled with voice:', savedOpenAIVoice || 'alloy');
+    } else {
+      this.voiceManager.useBrowserTTS();
+      console.log('🔊 Using browser TTS');
+    }
   }
 
   private loadVoices(): void {
@@ -232,15 +256,34 @@ class KuchiApp {
       }
     });
 
+    // TTS provider change handler
+    this.ttsProviderSelect.addEventListener('change', () => {
+      this.updateVoiceSelectors();
+    });
+
     // Spacebar shortcut
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && 
+      if (e.code === 'Space' &&
           document.activeElement?.tagName !== 'INPUT' &&
           document.activeElement?.tagName !== 'TEXTAREA') {
         e.preventDefault();
         this.handleMicClick();
       }
     });
+  }
+
+  private updateVoiceSelectors(): void {
+    const provider = this.ttsProviderSelect.value;
+    const browserVoiceGroup = this.voiceSelect.closest('.form-group') as HTMLElement;
+    const openaiVoiceGroup = this.openaiVoiceSelect.closest('.form-group') as HTMLElement;
+
+    if (provider === 'openai') {
+      browserVoiceGroup.style.display = 'none';
+      openaiVoiceGroup.style.display = 'block';
+    } else {
+      browserVoiceGroup.style.display = 'block';
+      openaiVoiceGroup.style.display = 'none';
+    }
   }
 
   private initializeAgent(): void {
@@ -450,9 +493,16 @@ class KuchiApp {
     const apiKey = localStorage.getItem(this.API_KEY_STORAGE);
     const serpApiKey = localStorage.getItem(this.SERP_API_KEY_STORAGE);
     const selectedVoice = localStorage.getItem(this.VOICE_STORAGE);
+    const ttsProvider = localStorage.getItem(this.TTS_PROVIDER_STORAGE) || 'browser';
+    const openaiVoice = localStorage.getItem(this.OPENAI_VOICE_STORAGE) || 'alloy';
 
     this.apiKeyInput.value = apiKey || '';
     this.serpApiKeyInput.value = serpApiKey || '';
+    this.ttsProviderSelect.value = ttsProvider;
+    this.openaiVoiceSelect.value = openaiVoice;
+
+    // Show/hide voice selectors based on TTS provider
+    this.updateVoiceSelectors();
 
     // Load memory data if agent exists
     if (this.agent) {
@@ -609,6 +659,8 @@ class KuchiApp {
     const apiKey = this.apiKeyInput.value.trim();
     const serpApiKey = this.serpApiKeyInput.value.trim();
     const selectedVoice = this.voiceSelect.value;
+    const ttsProvider = this.ttsProviderSelect.value;
+    const openaiVoice = this.openaiVoiceSelect.value;
     const userName = this.userNameInput.value.trim();
     const memoryNotes = this.memoryNotesInput.value.trim();
 
@@ -633,9 +685,16 @@ class KuchiApp {
     localStorage.setItem(this.API_KEY_STORAGE, apiKey);
     localStorage.setItem(this.SERP_API_KEY_STORAGE, serpApiKey);
     localStorage.setItem(this.VOICE_STORAGE, selectedVoice);
+    localStorage.setItem(this.TTS_PROVIDER_STORAGE, ttsProvider);
+    localStorage.setItem(this.OPENAI_VOICE_STORAGE, openaiVoice);
 
-    // Update voice manager with selected voice
-    this.voiceManager.setPreferredVoice(selectedVoice);
+    // Update voice manager based on TTS provider
+    if (ttsProvider === 'openai') {
+      this.voiceManager.enableOpenAITTS(apiKey, openaiVoice as any, 1.0);
+    } else {
+      this.voiceManager.useBrowserTTS();
+      this.voiceManager.setPreferredVoice(selectedVoice);
+    }
 
     try {
       // Create or update agent
